@@ -337,9 +337,15 @@
       /* ---- autenticação ---- */
       onAuth: (cb) => auth.onAuthStateChanged((u) => cb(mapUser(u))),
       login: (email, senha) => auth.signInWithEmailAndPassword(email, senha),
-      async register(nome, email, senha) {
+      async register(nome, email, senha, termosVersao) {
         const cred = await auth.createUserWithEmailAndPassword(email, senha);
         if (nome) await cred.user.updateProfile({ displayName: nome });
+        // Prova de aceite dos Termos de Uso e da Política de Privacidade, com a data do servidor (não dá para forjar).
+        // Best-effort: se isso falhar, a conta já foi criada e não travamos o cadastro por causa disso.
+        if (termosVersao) {
+          try { await db.collection('aceites').doc(cred.user.uid).set({ uid: cred.user.uid, email, versao: termosVersao, aceitoEm: ts() }); }
+          catch (e) { /* ignora: a regra ou a rede podem falhar aqui sem impedir o cadastro */ }
+        }
       },
       resetPassword: (email) => auth.sendPasswordResetEmail(email),
       logout: () => auth.signOut(),

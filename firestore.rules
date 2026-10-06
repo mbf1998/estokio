@@ -120,6 +120,21 @@ service cloud.firestore {
         && request.resource.data.status == 'cancelado');
       allow delete: if false;
     }
+    // Prova de aceite dos Termos de Uso e da Política de Privacidade: um registro por pessoa, nunca alterável.
+    // Grava no momento da conta (register()), antes de a empresa existir, por isso fica fora de empresas/{id}.
+    match /aceites/{id} {
+      allow get: if logado() && (id == request.auth.uid || ehAdmin());
+      allow list: if ehAdmin();
+      allow create: if logado() && id == request.auth.uid
+        && request.resource.data.uid == request.auth.uid
+        && request.resource.data.email == request.auth.token.email
+        && request.resource.data.versao is string && request.resource.data.versao.size() > 0
+        && request.resource.data.aceitoEm == request.time;
+      allow update: if false;
+      // Só o admin apaga, e só como parte de excluir uma conta por completo (pedido de exclusão da LGPD).
+      allow delete: if ehAdmin();
+    }
+
     match /auditoria/{id} {
       allow read: if ehAdmin();
       allow create: if ehAdmin()

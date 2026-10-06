@@ -1017,3 +1017,8 @@ html.embutido body { overflow: hidden; }
 
 /* marca de versão discreta no rodapé do menu, só para conferir se o navegador está com os arquivos novos */
 .build-tag { font-weight: 500; font-stretch: 100%; opacity: .85; }
+
+/* caixa de aceite dos termos, no cadastro */
+.auth-termos { margin: 2px 0 4px; line-height: 1.4; }
+.auth-termos input { margin-top: 3px; flex: none; }
+.auth-termos a { color: var(--adj); font-weight: 650; text-decoration: underline; }
