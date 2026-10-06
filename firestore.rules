@@ -120,7 +120,8 @@ service cloud.firestore {
         && request.resource.data.status == 'cancelado');
       allow delete: if false;
     }
-    // Prova de aceite dos Termos de Uso e da Política de Privacidade: um registro por pessoa, nunca alterável.
+    // Prova de aceite dos quatro documentos de termos.html (Termos de Uso, Licença de Software, Prestação de
+    // Serviços e Política de Privacidade): um registro por pessoa, nunca alterável.
     // Grava no momento da conta (register()), antes de a empresa existir, por isso fica fora de empresas/{id}.
     match /aceites/{id} {
       allow get: if logado() && (id == request.auth.uid || ehAdmin());

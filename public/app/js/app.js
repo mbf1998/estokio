@@ -32,7 +32,7 @@
   const cf = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' });
   const df = new Intl.DateTimeFormat('pt-BR', { dateStyle: 'short', timeStyle: 'short' });
   const dfd = new Intl.DateTimeFormat('pt-BR', { dateStyle: 'short' });
-  const TERMOS_VERSAO = '1.0'; // precisa bater com a "Versão" escrita no topo de public/termos.html
+  const TERMOS_VERSAO = '2.0'; // precisa bater com a "Versão" escrita no topo de public/termos.html
   const hf = new Intl.DateTimeFormat('pt-BR', { hour: '2-digit', minute: '2-digit' });
   const plural = (n, um, varios) => `${n} ${n === 1 ? um : varios}`;
   const logoSeguro = (u) => (typeof u === 'string' && /^data:image\/(png|jpeg|webp|gif|svg\+xml);base64,/.test(u) ? u : '');
@@ -2989,7 +2989,7 @@
       // Código só existe quando a pessoa veio por um link de convite; se estiver incompleto, segue sem ele
       if (f.codigo.value.trim() && !/^(EST|EQP)-[A-Z0-9]{4}-[A-Z0-9]{4}-[A-Z0-9]{4}$/.test(codigo)) f.codigo.value = '';
       if (!nome) return falha('Informe seu nome.');
-      if (!f.termos.checked) return falha('Para criar a conta, você precisa aceitar os Termos de Uso e a Política de Privacidade.');
+      if (!f.termos.checked) return falha('Para criar a conta, você precisa marcar que aceita os termos, listados logo abaixo.');
     }
     if (!email) return falha('Informe seu e-mail.');
     if (authMode !== 'reset' && senha.length < 6) return falha('A senha precisa ter pelo menos 6 caracteres.');
