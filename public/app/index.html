@@ -1,0 +1,125 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Estokio</title>
+  <meta name="description" content="Estokio: controle de estoque">
+  <meta name="theme-color" content="#16233A">
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="icon" href="assets/favicon.ico" sizes="32x32">
+  <link rel="icon" href="assets/icon.svg" type="image/svg+xml">
+  <link rel="apple-touch-icon" href="assets/apple-touch-icon.png">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,400..800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/styles.css">
+</head>
+<body>
+
+  <!-- Acesso -->
+  <section id="auth" class="auth" hidden>
+    <div class="auth-brand">
+      <div class="brand brand-lg"><img class="logo-estokio" src="assets/estokio-logo-claro.svg" alt="Estokio"></div>
+      <p class="auth-tagline">Saiba o que entra, o que sai e o que está acabando.</p>
+      <div class="shelf" aria-hidden="true">
+        <span style="--h:62%"></span><span style="--h:88%"></span><span style="--h:24%" class="low"></span>
+        <span style="--h:71%"></span><span style="--h:45%"></span><span style="--h:93%"></span>
+        <span style="--h:12%" class="low"></span><span style="--h:57%"></span>
+      </div>
+    </div>
+    <div class="auth-panel">
+      <form id="f-auth" class="auth-form" novalidate>
+        <div class="auth-tabs" role="tablist">
+          <button type="button" role="tab" data-auth-mode="login" aria-selected="true">Entrar</button>
+          <button type="button" role="tab" data-auth-mode="register" aria-selected="false">Criar conta</button>
+        </div>
+        <h1 id="auth-title">Entrar no Estokio</h1>
+        <p class="auth-hint" data-only="register" hidden>Crie sua conta e comece um <strong>teste grátis de 7 dias</strong>, com tudo liberado. Sem cartão e sem código.</p>
+        <!-- Código de convite ou ativação: só quando a pessoa chega por um link (?codigo=...). É aplicado depois de criar a conta. -->
+        <input type="hidden" name="codigo">
+        <p class="auth-convite" id="auth-convite" hidden></p>
+        <label class="field" data-only="register" hidden><span>Seu nome</span>
+          <input name="nome" autocomplete="name" maxlength="80"></label>
+        <label class="field"><span>E-mail</span>
+          <input name="email" type="email" autocomplete="email" required></label>
+        <label class="field" data-hide="reset"><span>Senha</span>
+          <input name="senha" type="password" autocomplete="current-password" minlength="6" required></label>
+        <p class="form-error" id="auth-error" role="alert" hidden></p>
+        <p class="form-ok" id="auth-ok" role="status" hidden></p>
+        <button class="btn btn-primary btn-block" type="submit" id="auth-submit">Entrar</button>
+        <button type="button" class="link-btn" data-auth-mode="reset" data-only="login">Esqueci minha senha</button>
+        <button type="button" class="link-btn" data-auth-mode="login" data-only="reset" hidden>Voltar para o login</button>
+        <p class="auth-demo">Ainda não conhece o Estokio? <a href="?demo=1">Ver a demonstração</a></p>
+      </form>
+    </div>
+  </section>
+
+  <!-- Telas de passagem: carregando, ativar código, configurar empresa, empresa suspensa -->
+  <section id="tela" class="tela" hidden></section>
+
+  <!-- Aplicativo -->
+  <div id="shell" class="shell" hidden>
+    <aside class="sidebar">
+      <a class="brand side-brand" href="#/painel" id="side-brand"></a>
+      <nav class="nav" aria-label="Seções">
+        <a href="#/painel" data-grupo="painel"><span data-icon="painel"></span><span>Painel</span></a>
+        <a href="#/produtos" data-grupo="produtos"><span data-icon="produtos"></span><span>Produtos</span></a>
+        <a href="#/movimentacoes" data-grupo="estoque"><span data-icon="movimentacoes"></span><span>Estoque</span></a>
+        <a href="#/compras" data-grupo="compras"><span data-icon="compras"></span><span>Compras</span><span class="nav-badge" id="badge-compras" hidden></span></a>
+        <a href="#/empresa" data-grupo="empresa" hidden><span data-icon="empresa"></span><span>Empresa</span></a>
+      </nav>
+      <div class="side-user">
+        <div class="side-user-info">
+          <span id="user-name"></span>
+          <small id="user-email"></small>
+        </div>
+        <button class="side-logout" data-action="logout" id="btn-logout" title="Sair"><span data-icon="sair"></span><span class="sr-only">Sair</span></button>
+      </div>
+      <p class="side-powered">Estokio <span id="build-tag" class="build-tag"></span></p>
+    </aside>
+
+    <main class="main">
+      <div class="demo-banner" id="demo-banner" hidden>
+        Modo demonstração: os dados ficam salvos só neste navegador. Para usar o Firebase, preencha <code>js/firebase-config.js</code>.
+      </div>
+      <header class="topbar">
+        <h1 id="page-title">Painel</h1>
+        <div class="topbar-actions" id="page-actions"></div>
+      </header>
+      <nav class="abas-grupo" id="abas-grupo" hidden></nav>
+      <div id="view" class="view"></div>
+    </main>
+  </div>
+
+  <div id="modal-root"></div>
+  <div id="toasts" class="toasts" aria-live="polite"></div>
+
+  <!-- Firebase (SDK compat: funciona abrindo o arquivo direto, no Electron e no Capacitor) -->
+  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+
+  <!-- Marca de versão, só para conferir se o navegador está com os arquivos novos (não depende do app.js carregar). -->
+  <script>(function () { var t = document.getElementById('build-tag'); if (t) t.textContent = '· versão 2026-10-05.3'; })();</script>
+  <script src="js/firebase-config.js"></script>
+  <script src="js/assinatura.js"></script>
+  <script src="js/pix.js"></script>
+  <script src="js/demo-dados.js"></script>
+  <script src="js/db.js"></script>
+  <script src="js/marca.js"></script>
+  <script src="js/importacao.js"></script>
+  <script src="js/scanner.js"></script>
+  <script src="js/previsao.js"></script>
+  <!-- Módulos de recursos: cada um se registra e o app.js os conecta (o plano define quais ficam liberados) -->
+  <script src="js/modulos/codigos.js"></script>
+  <script src="js/modulos/lotes.js"></script>
+  <script src="js/modulos/multiloja.js"></script>
+  <script src="js/modulos/grade.js"></script>
+  <script src="js/modulos/relatorios.js"></script>
+  <script src="js/modulos/etiquetas.js"></script>
+  <script src="js/modulos/pedidos-compra.js"></script>
+  <script src="js/modulos/inventario.js"></script>
+  <script src="js/app.js"></script>
+</body>
+</html>

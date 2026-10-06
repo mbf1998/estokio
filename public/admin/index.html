@@ -1,0 +1,62 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="robots" content="noindex, nofollow">
+  <title>Estokio Admin</title>
+  <link rel="icon" href="../app/assets/favicon.ico" sizes="32x32">
+  <link rel="icon" href="../app/assets/icon.svg" type="image/svg+xml">
+  <link rel="apple-touch-icon" href="../app/assets/apple-touch-icon.png">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,400..800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../app/css/styles.css">
+  <link rel="stylesheet" href="admin.css">
+</head>
+<body class="admin">
+
+  <!-- Login do administrador -->
+  <section id="a-login" class="gate" hidden>
+    <form id="f-login" class="gate-card" novalidate>
+      <div class="gate-brand"><img class="logo-estokio" src="../app/assets/estokio-logo.svg" alt="Estokio"><span class="a-sufixo">Admin</span></div>
+      <h1>Painel do administrador</h1>
+      <p>Área restrita. Entre com a conta cadastrada na coleção <code>admins</code> do Firestore.</p>
+      <label class="field"><span>E-mail</span><input name="email" type="email" autocomplete="username" required></label>
+      <label class="field"><span>Senha</span><input name="senha" type="password" autocomplete="current-password" required></label>
+      <p class="form-error" role="alert" hidden></p>
+      <button class="btn btn-primary btn-block" type="submit">Entrar</button>
+    </form>
+  </section>
+
+  <!-- Mensagens (sem configuração, sem permissão) -->
+  <section id="a-msg" class="gate" hidden></section>
+
+  <!-- Painel -->
+  <div id="a-app" hidden>
+    <header class="a-top">
+      <div class="gate-brand a-brand"><img class="logo-estokio" src="../app/assets/estokio-logo-claro.svg" alt="Estokio"><span class="a-sufixo">Admin</span></div>
+      <nav class="a-nav" aria-label="Seções do painel">
+        <a href="#/empresas" data-rota="empresas">Empresas</a>
+        <a href="#/financeiro" data-rota="financeiro">Financeiro <span class="nav-badge" id="badge-pedidos" hidden></span></a>
+        <a href="#/planos" data-rota="planos">Planos</a>
+        <a href="#/historico" data-rota="historico">Histórico</a>
+        <a href="#/config" data-rota="config">Configurações</a>
+      </nav>
+      <div class="a-user"><span id="a-email"></span><button class="btn btn-sm a-out" data-action="sair">Sair</button></div>
+    </header>
+    <main class="a-main" id="a-conteudo"></main>
+  </div>
+
+  <div id="modal-root"></div>
+  <div id="toasts" class="toasts" aria-live="polite"></div>
+
+  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+  <script src="../app/js/firebase-config.js"></script>
+  <script src="../app/js/assinatura.js"></script>
+  <script src="../app/js/pix.js"></script>
+  <script src="admin.js"></script>
+</body>
+</html>

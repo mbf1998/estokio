@@ -1,0 +1,7 @@
+# Atalhos fáceis de divulgar (Cloudflare Pages)
+/entrar         /app/index.html?entrar=1     302
+/login          /app/index.html?entrar=1     302
+/cadastro       /app/index.html?cadastro=1   302
+/teste-gratis   /app/index.html?cadastro=1   302
+/demo           /app/index.html?demo=1       302
+/demonstracao   /app/index.html?demo=1       302

@@ -1,0 +1,19 @@
+# Cabeçalhos do Cloudflare Pages
+/*
+  X-Content-Type-Options: nosniff
+  Referrer-Policy: strict-origin-when-cross-origin
+  X-Frame-Options: SAMEORIGIN
+  Permissions-Policy: camera=(self), microphone=(), geolocation=(), payment=()
+
+# Página inicial e imagens: cache de 1 dia
+/assets/*
+  Cache-Control: public, max-age=86400
+
+# Gestor: sempre confere se há versão nova (atualizações chegam na hora)
+/app/*
+  Cache-Control: no-cache
+
+# Painel admin: fora do Google e sem cache
+/admin/*
+  X-Robots-Tag: noindex, nofollow
+  Cache-Control: no-store

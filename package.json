@@ -1,0 +1,49 @@
+{
+  "name": "estokio",
+  "productName": "Estokio",
+  "version": "1.0.0",
+  "description": "Estokio: controle de estoque (web no Cloudflare Pages, desktop e, em breve, Android)",
+  "main": "electron/main.js",
+  "private": true,
+  "scripts": {
+    "start": "electron .",
+    "local": "npx serve public -l 5000",
+    "deploy": "npx wrangler pages deploy public --project-name estokio",
+    "deploy:regras": "firebase deploy --only firestore:rules",
+    "dist:win": "electron-builder --win",
+    "dist:linux": "electron-builder --linux",
+    "dist:mac": "electron-builder --mac",
+    "testar:regras": "node tools/regras/matriz.js && node tools/regras/fluxos.js && node tools/regras/orcamento.js"
+  },
+  "devDependencies": {
+    "electron": "^33.2.0",
+    "electron-builder": "^25.1.8"
+  },
+  "build": {
+    "appId": "com.estokio.app",
+    "productName": "Estokio",
+    "files": [
+      "electron/**/*",
+      "public/**/*"
+    ],
+    "directories": {
+      "output": "dist"
+    },
+    "win": {
+      "target": "nsis"
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "shortcutName": "Estokio"
+    },
+    "linux": {
+      "target": "AppImage",
+      "category": "Office"
+    },
+    "mac": {
+      "target": "dmg",
+      "category": "public.app-category.business"
+    }
+  }
+}

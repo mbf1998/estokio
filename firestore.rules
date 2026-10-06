@@ -1,0 +1,447 @@
+rules_version = '2';
+
+// ============================================================================
+// Estokio — regras multiempresa
+//
+// - Administrador master: documento admins/{uid} (criado à mão no console).
+// - O admin cria a empresa e um código EST-… ; quem resgatar vira o responsável.
+// - O responsável gera códigos EQP-… ; cada resgate ocupa uma vaga.
+// - Limite de usuários (maxUsuarios = 5) garantido aqui, pelo contador totalUsuarios.
+// - Cada empresa só enxerga os próprios dados. Empresa suspensa (ativo = false)
+//   perde acesso ao estoque.
+// - Cada empresa tem acessoAte. Vencido, o estoque fica bloqueado até o
+//   responsável aplicar um código REN-… (gerado pelo admin), que soma dias
+//   ao prazo atual. Pode ser aplicado antes de vencer.
+// - Histórico de movimentações é imutável (só o admin apaga, ao excluir a empresa a pedido do cliente, LGPD).
+// - Planos, cobranças, configurações e o histórico de ações do admin só são vistos pelo admin.
+//   O histórico de ações do admin é imutável.
+// - Teste grátis: o próprio cliente cria a empresa (7 dias, tudo liberado), uma vez por e-mail
+//   (testes/{email}) e uma vez por CNPJ/CPF (cnpjs/{documento}).
+// - Pedidos de pagamento (Pix): o responsável cria; só o admin confirma e libera.
+// - Planos: Básico, Pro e Premium. Os recursos de cada um ficam em empresas/{id}.recursos e valem aqui nas regras.
+// ============================================================================
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function logado() { return request.auth != null; }
+    function ehAdmin() {
+      return logado() && exists(/databases/$(database)/documents/admins/$(request.auth.uid));
+    }
+    function empresa(eid) { return get(/databases/$(database)/documents/empresas/$(eid)).data; }
+    function empresaDepois(eid) { return getAfter(/databases/$(database)/documents/empresas/$(eid)).data; }
+    function temMembro(eid) {
+      return exists(/databases/$(database)/documents/empresas/$(eid)/membros/$(request.auth.uid));
+    }
+    // Sem acessoAte (empresas antigas) = sem vencimento
+    function acessoValido(e) { return e.get('acessoAte', null) == null || e.acessoAte > request.time; }
+    function ehMembro(eid) {
+      let e = empresa(eid);
+      return logado() && temMembro(eid) && e.ativo == true && acessoValido(e);
+    }
+    function ehDono(eid) {
+      return logado() && empresa(eid).donoUid == request.auth.uid && empresa(eid).ativo == true;
+    }
+    // Papel da pessoa na empresa: dono, gerente, estoquista, caixa ('membro' antigo vale como estoquista)
+    function papelDe(eid) {
+      return get(/databases/$(database)/documents/empresas/$(eid)/membros/$(request.auth.uid)).data.get('papel', 'membro');
+    }
+    // Responsável ou gerente: vê custos, ajusta, exclui, aprova
+    function podeGerir(eid) { return ehDono(eid) || (ehMembro(eid) && papelDe(eid) == 'gerente'); }
+    // Qualquer papel, menos caixa: entradas, cadastro de produtos, pedidos de compra, contagem
+    function naoCaixa(eid) { return ehMembro(eid) && papelDe(eid) != 'caixa'; }
+    // ORÇAMENTO DE CONSULTAS: o Firestore deixa as regras consultar outros documentos (get/exists) no máximo 20 vezes por lote ou
+    // transação. Por isso as GRAVAÇÕES usam papelAtivo(), que sempre gasta 2 consultas (a empresa e o membro), e não os auxiliares
+    // acima, que repetem consultas. O app fatia lotes e transações pelo mesmo orçamento (veja MAX_ESCRITAS em js/db.js).
+    // Papel da pessoa na empresa, ou 'inativo' se a empresa está suspensa ou vencida. Quem não é membro dá erro (= nega).
+    function papelAtivo(eid) {
+      let e = empresa(eid);
+      let m = get(/databases/$(database)/documents/empresas/$(eid)/membros/$(request.auth.uid)).data;
+      return (e.ativo == true && acessoValido(e)) ? m.get('papel', 'membro') : 'inativo';
+    }
+    // Qualquer papel, menos o caixa
+    function escreve(p) { return p in ['dono', 'gerente', 'estoquista', 'membro']; }
+    // Responsável ou gerente
+    function gere(p) { return p in ['dono', 'gerente']; }
+    // Recursos do plano. Lotes, grade, multiloja, relatórios e etiquetas só valem se o plano os traz (o teste grátis grava todos como true)
+    function temRecurso(eid, k) { return empresa(eid).get('recursos', {}).get(k, false) == true; }
+    // NF-e e kits valem a menos que o plano os desligue (empresas em planos antigos não têm o campo e continuam com eles)
+    function semBloqueio(eid, k) { return empresa(eid).get('recursos', {}).get(k, true) != false; }
+    function convite(id) { return get(/databases/$(database)/documents/convites/$(id)).data; }
+    function conviteDepois(id) { return getAfter(/databases/$(database)/documents/convites/$(id)).data; }
+    function mudou() { return request.resource.data.diff(resource.data).affectedKeys(); }
+
+    // ---------------------------------------------------------------- admins
+    match /admins/{id} {
+      allow get: if logado() && id == request.auth.uid;
+      allow list, write: if false;
+    }
+
+    // ---------------------------------------------------- área do admin
+    // Os planos são o catálogo de preços: leitura pública, para a página inicial mostrar os valores
+    match /planos/{id} {
+      allow read: if true;
+      allow write: if ehAdmin();
+    }
+    match /cobrancas/{id} {
+      allow read, create, update: if ehAdmin();
+      allow delete: if false;   // registro financeiro: cancela, nunca apaga
+    }
+    match /config/{id} {
+      // config/publico (WhatsApp do suporte, chave Pix) é pública: a página inicial e o app leem; o resto só o admin
+      allow read: if ehAdmin() || id == 'publico';
+      allow write: if ehAdmin();
+    }
+    // Um teste grátis por e-mail
+    match /testes/{email} {
+      allow get: if ehAdmin() || (logado() && email == request.auth.token.email);
+      allow list, delete: if ehAdmin();
+      allow create: if logado() && email == request.auth.token.email
+        && getAfter(/databases/$(database)/documents/empresas/$(request.resource.data.empresaId)).data.donoUid == request.auth.uid;
+      allow update: if false;
+    }
+    // Um cadastro por CNPJ/CPF (não pode ser lido pelo app, para não expor quem é cliente)
+    match /cnpjs/{doc} {
+      allow read, update, delete: if ehAdmin();
+      allow create: if ehAdmin() || (logado()
+        && getAfter(/databases/$(database)/documents/empresas/$(request.resource.data.empresaId)).data.donoUid == request.auth.uid
+        && getAfter(/databases/$(database)/documents/empresas/$(request.resource.data.empresaId)).data.cnpj == doc);
+    }
+    // Pedidos de pagamento por Pix
+    match /pedidos/{id} {
+      allow read: if ehAdmin() || (logado() && ehDono(resource.data.empresaId));
+      allow create: if logado() && ehDono(request.resource.data.empresaId)
+        && request.resource.data.status == 'aguardando'
+        && request.resource.data.criadoPor == request.auth.token.email
+        && request.resource.data.valor is number && request.resource.data.valor > 0;
+      // o responsável só pode cancelar o próprio pedido pendente; confirmar é do admin
+      allow update: if ehAdmin() || (logado() && ehDono(resource.data.empresaId)
+        && resource.data.status == 'aguardando'
+        && mudou().hasOnly(['status', 'canceladoEm'])
+        && request.resource.data.status == 'cancelado');
+      allow delete: if false;
+    }
+    match /auditoria/{id} {
+      allow read: if ehAdmin();
+      allow create: if ehAdmin()
+        && request.resource.data.adminUid == request.auth.uid
+        && request.resource.data.acao is string;
+      allow update, delete: if false;
+    }
+
+    // -------------------------------------------------------------- usuarios
+    match /usuarios/{id} {
+      allow get: if logado() && (id == request.auth.uid || ehAdmin());
+      allow list, update: if ehAdmin();
+      // Criado pelo próprio usuário, no mesmo lote em que ele vira membro da empresa
+      allow create: if logado() && id == request.auth.uid
+        && request.resource.data.email == request.auth.token.email
+        && getAfter(/databases/$(database)/documents/empresas/$(request.resource.data.empresaId)/membros/$(id)).data.papel
+           == request.resource.data.papel;
+      allow delete: if ehAdmin()
+        || (resource.data.papel != 'dono' && ehDono(resource.data.empresaId));
+    }
+
+    // -------------------------------------------------------------- convites
+    match /convites/{id} {
+      allow get: if logado();
+      allow list: if ehAdmin()
+        || (logado() && resource.data.tipo == 'membro' && ehDono(resource.data.empresaId));
+      allow create: if ehAdmin()
+        || (request.resource.data.tipo == 'membro'
+            && request.resource.data.status == 'pendente'
+            && request.resource.data.criadoPor == request.auth.uid
+            && request.resource.data.validoAte is timestamp
+            && id.matches('^EQP-[A-Z0-9]{4}-[A-Z0-9]{4}-[A-Z0-9]{4}$')
+            && (!('papel' in request.resource.data) || request.resource.data.papel in ['gerente', 'estoquista', 'caixa'])
+            && ehDono(request.resource.data.empresaId));
+      function resgate() {
+        return logado()
+          && resource.data.status == 'pendente'
+          && request.time < resource.data.validoAte
+          && mudou().hasOnly(['status', 'usadoPor', 'usadoEmail', 'usadoEm'])
+          && request.resource.data.status == 'usado'
+          && request.resource.data.usadoPor == request.auth.uid;
+      }
+      // EST / EQP: só junto com a entrada na empresa
+      function resgateEntrada() {
+        return resgate()
+          && resource.data.tipo in ['empresa', 'membro']
+          && existsAfter(/databases/$(database)/documents/empresas/$(resource.data.empresaId)/membros/$(request.auth.uid));
+      }
+      // REN: só o responsável da empresa do código, junto com a atualização do vencimento
+      function resgateRenovacao() {
+        return resgate()
+          && resource.data.tipo == 'renovacao'
+          && ehDono(resource.data.empresaId)
+          && getAfter(/databases/$(database)/documents/empresas/$(resource.data.empresaId)).data.ultimaRenovacao == id;
+      }
+      allow update: if ehAdmin() || resgateEntrada() || resgateRenovacao();
+      allow delete: if ehAdmin()
+        || (resource.data.tipo == 'membro' && ehDono(resource.data.empresaId));
+    }
+
+    // -------------------------------------------------------------- empresas
+    match /empresas/{eid} {
+
+      // Responsável resgata o código EST-…
+      function ativar() {
+        let token = request.resource.data.conviteUsado;
+        return logado()
+          && resource.data.donoUid == null
+          && resource.data.ativo == true
+          && mudou().hasOnly(['donoUid', 'donoEmail', 'conviteUsado', 'totalUsuarios', 'ativadoEm', 'acessoAte'])
+          && request.resource.data.acessoAte is timestamp
+          && request.resource.data.acessoAte <= request.time
+             + duration.value(convite(token).get('dias', 30), 'd') + duration.value(12, 'h')
+          && request.resource.data.donoUid == request.auth.uid
+          && request.resource.data.donoEmail == request.auth.token.email
+          && request.resource.data.totalUsuarios == 1
+          && convite(token).tipo == 'empresa'
+          && convite(token).status == 'pendente'
+          && convite(token).empresaId == eid
+          && conviteDepois(token).usadoPor == request.auth.uid;
+      }
+
+      // Responsável aplica um código REN: soma os dias ao prazo atual
+      // (ou a partir de agora, se já venceu). Tolerância de 12 h para o relógio do aparelho.
+      function renovar() {
+        let token = request.resource.data.ultimaRenovacao;
+        let c = convite(token);
+        let novo = request.resource.data.acessoAte;
+        let antigo = resource.data.get('acessoAte', request.time);
+        return ehDono(eid)
+          && mudou().hasOnly(['acessoAte', 'ultimaRenovacao', 'renovadoEm'])
+          && c.tipo == 'renovacao'
+          && c.status == 'pendente'
+          && c.empresaId == eid
+          && conviteDepois(token).usadoPor == request.auth.uid
+          && novo is timestamp
+          && (novo <= antigo + duration.value(c.dias, 'd') + duration.value(12, 'h')
+              || novo <= request.time + duration.value(c.dias, 'd') + duration.value(12, 'h'));
+      }
+
+      // Responsável personaliza dados e aparência
+      function editarMarca() {
+        let d = request.resource.data;
+        return ehDono(eid)
+          && mudou().hasOnly(['nome', 'cnpj', 'telefone', 'cidade', 'logo', 'corPrimaria', 'corDestaque', 'configurado', 'atualizadoEm'])
+          && d.nome is string && d.nome.size() > 0 && d.nome.size() <= 80
+          && (d.get('logo', null) == null || (d.logo is string && d.logo.size() < 400000))
+          && (d.get('corPrimaria', null) == null || d.corPrimaria.matches('^#[0-9A-Fa-f]{6}$'))
+          && (d.get('corDestaque', null) == null || d.corDestaque.matches('^#[0-9A-Fa-f]{6}$'));
+      }
+
+      // Novo membro ocupa uma vaga (o limite é checado aqui)
+      function entrarEquipe() {
+        return logado()
+          && resource.data.ativo == true
+          && mudou().hasOnly(['totalUsuarios'])
+          && request.resource.data.totalUsuarios == resource.data.totalUsuarios + 1
+          && request.resource.data.totalUsuarios <= resource.data.maxUsuarios
+          && !temMembro(eid)
+          && existsAfter(/databases/$(database)/documents/empresas/$(eid)/membros/$(request.auth.uid));
+      }
+
+      // Responsável remove alguém e libera a vaga
+      function removerMembro() {
+        let alvo = request.resource.data.ultimoRemovido;
+        return ehDono(eid)
+          && mudou().hasOnly(['totalUsuarios', 'ultimoRemovido'])
+          && request.resource.data.totalUsuarios == resource.data.totalUsuarios - 1
+          && alvo != resource.data.donoUid
+          && exists(/databases/$(database)/documents/empresas/$(eid)/membros/$(alvo))
+          && !existsAfter(/databases/$(database)/documents/empresas/$(eid)/membros/$(alvo));
+      }
+
+      // Teste grátis criado pelo próprio cliente: valores travados aqui
+      function criarTeste() {
+        let d = request.resource.data;
+        return logado()
+          && d.keys().hasOnly(['nome', 'cnpj', 'telefone', 'cidade', 'contatoNome', 'contatoEmail', 'contatoTelefone', 'logo',
+               'corPrimaria', 'corDestaque', 'ativo', 'configurado', 'donoUid', 'donoEmail', 'totalUsuarios', 'maxUsuarios',
+               'planoId', 'planoNome', 'planoPreco', 'planoDias', 'maxProdutos', 'recursos', 'pacotes', 'origem',
+               'acessoAte', 'criadoEm', 'ativadoEm'])
+          && d.donoUid == request.auth.uid && d.donoEmail == request.auth.token.email
+          && d.ativo == true && d.configurado == false && d.totalUsuarios == 1 && d.maxUsuarios == 5
+          && d.planoId == 'teste' && d.planoPreco == 0 && d.maxProdutos == 0 && d.origem == 'teste'
+          && d.pacotes.size() == 0
+          && d.nome is string && d.nome.size() > 0 && d.nome.size() <= 80
+          && d.cnpj is string && d.cnpj.size() >= 11 && d.cnpj.size() <= 14
+          && d.acessoAte is timestamp && d.acessoAte <= request.time + duration.value(7, 'd') + duration.value(1, 'h')
+          && !exists(/databases/$(database)/documents/usuarios/$(request.auth.uid))
+          && existsAfter(/databases/$(database)/documents/testes/$(request.auth.token.email))
+          && existsAfter(/databases/$(database)/documents/cnpjs/$(d.cnpj));
+      }
+
+      allow get: if ehAdmin() || (logado() && temMembro(eid));
+      allow list, delete: if ehAdmin();
+      allow create: if ehAdmin() || criarTeste();
+      // Qualquer membro registra o último acesso (hora do servidor)
+      function registrarAcesso() {
+        return logado() && temMembro(eid)
+          && mudou().hasOnly(['ultimoAcesso'])
+          && request.resource.data.ultimoAcesso == request.time;
+      }
+
+      allow update: if ehAdmin() || ativar() || renovar() || editarMarca() || entrarEquipe() || removerMembro() || registrarAcesso();
+
+      // ------------------------------------------------------------ membros
+      match /membros/{m} {
+        allow read: if ehAdmin() || (logado() && temMembro(eid));
+        allow create: if logado() && m == request.auth.uid
+          && request.resource.data.email == request.auth.token.email
+          && (
+            // responsável, no lote de ativação por código EST
+            (request.resource.data.papel == 'dono'
+              && exists(/databases/$(database)/documents/empresas/$(eid))
+              && empresa(eid).donoUid == null
+              && empresaDepois(eid).donoUid == request.auth.uid)
+            ||
+            // responsável, no lote de criação do teste grátis
+            (request.resource.data.papel == 'dono'
+              && !exists(/databases/$(database)/documents/empresas/$(eid))
+              && empresaDepois(eid).donoUid == request.auth.uid
+              && empresaDepois(eid).origem == 'teste')
+            ||
+            // membro, com código EQP válido desta empresa e ocupando uma vaga (papel definido no convite)
+            (request.resource.data.papel == convite(request.resource.data.convite).get('papel', 'membro')
+              && convite(request.resource.data.convite).tipo == 'membro'
+              && convite(request.resource.data.convite).status == 'pendente'
+              && convite(request.resource.data.convite).empresaId == eid
+              && empresaDepois(eid).totalUsuarios == empresa(eid).totalUsuarios + 1)
+          );
+        allow delete: if ehAdmin() || (ehDono(eid) && m != request.auth.uid);
+        allow update: if ehAdmin()
+          || (m == request.auth.uid
+              && mudou().hasOnly(['ultimoAcesso'])
+              && request.resource.data.ultimoAcesso == request.time)
+          // o responsável define o papel de cada pessoa da equipe
+          || (ehDono(eid) && m != request.auth.uid && resource.data.papel != 'dono'
+              && mudou().hasOnly(['papel'])
+              && request.resource.data.papel in ['gerente', 'estoquista', 'caixa']);
+      }
+
+      // ------------------------------------------------------------ estoque
+      match /produtos/{id} {
+        // Atualizar produto: quem escreve edita tudo; o caixa só mexe nos campos de saldo; custo só responsável e gerente
+        function produtoAtualizavel(eid) {
+          let p = papelAtivo(eid);
+          return (escreve(p) || p == 'caixa') && produtoValido(eid)
+            && (p != 'caixa' || mudou().hasOnly(['quantidade', 'lotes', 'estoques', 'atualizadoEm']))
+            && (!mudou().hasAny(['custo']) || gere(p));
+        }
+        function produtoValido(eid) {
+          let d = request.resource.data;
+          return d.nome is string && d.nome.size() > 0 && d.nome.size() <= 120
+            // kits e combos só em planos que os trazem
+            && (!('kit' in d) || (d.kit is list && (d.kit.size() == 0 || semBloqueio(eid, 'kits'))))
+            && d.quantidade is number && d.quantidade >= 0
+            && (!('custo' in d) || (d.custo is number && d.custo >= 0))
+            && d.preco is number && d.preco >= 0
+            && d.estoqueMinimo is number && d.estoqueMinimo >= 0;
+        }
+        allow read: if ehMembro(eid) || ehAdmin();
+        // O preço de custo fica em custos/{id} (só responsável e gerente leem). Produto novo não leva custo.
+        allow create: if escreve(papelAtivo(eid)) && produtoValido(eid) && !('custo' in request.resource.data);
+        allow update: if produtoAtualizavel(eid);
+        allow delete: if podeGerir(eid) || ehAdmin();
+      }
+
+      // Preço de custo de cada produto: só responsável e gerente
+      match /custos/{id} {
+        allow read: if podeGerir(eid) || ehAdmin();
+        allow create, update, delete: if gere(papelAtivo(eid));
+      }
+
+      // Ajustes pedidos por quem não pode ajustar direto, aguardando aprovação
+      match /solicitacoes/{id} {
+        allow create: if escreve(papelAtivo(eid)) && request.resource.data.status == 'pendente'
+          && request.resource.data.solicitadoPor == request.auth.token.email;
+        allow read, update, delete: if podeGerir(eid) || ehAdmin();
+      }
+
+      // Pedidos de compra (plano básico)
+      match /pedidosCompra/{id} {
+        allow read: if ehMembro(eid) || ehAdmin();
+        allow create, update: if escreve(papelAtivo(eid))
+          // dias que o fornecedor levou para entregar (gravado no recebimento)
+          && (!('diasEntrega' in request.resource.data)
+              || (request.resource.data.diasEntrega is number && request.resource.data.diasEntrega >= 0 && request.resource.data.diasEntrega <= 365));
+        allow delete: if podeGerir(eid) || ehAdmin();
+      }
+
+      // Inventários (plano Pro e Premium): gerente abre e conclui, a equipe conta
+      match /inventarios/{id} {
+        allow read: if ehMembro(eid) || ehAdmin();
+        allow create: if podeGerir(eid) && temRecurso(eid, 'lotes');
+        allow update: if escreve(papelAtivo(eid)) && temRecurso(eid, 'lotes');
+        allow delete: if podeGerir(eid) || ehAdmin();
+      }
+
+      match /categorias/{id} {
+        allow read: if ehMembro(eid) || ehAdmin();
+        allow delete: if naoCaixa(eid) || ehAdmin();
+        allow create, update: if escreve(papelAtivo(eid))
+          && request.resource.data.nome is string && request.resource.data.nome.size() > 0;
+      }
+
+      match /fornecedores/{id} {
+        allow read: if ehMembro(eid) || ehAdmin();
+        allow delete: if naoCaixa(eid) || ehAdmin();
+        allow create, update: if escreve(papelAtivo(eid))
+          && request.resource.data.nome is string && request.resource.data.nome.size() > 0
+          // prazo de entrega informado, em dias (opcional)
+          && (!('prazoEntrega' in request.resource.data) || request.resource.data.prazoEntrega == null
+              || (request.resource.data.prazoEntrega is number && request.resource.data.prazoEntrega >= 0 && request.resource.data.prazoEntrega <= 365));
+      }
+
+      // Notas fiscais já lançadas: só criação (impede lançar a mesma NF-e duas vezes)
+      match /notas/{id} {
+        allow read: if ehMembro(eid) || ehAdmin();
+        // Lançar NF-e depende do plano (recursos.nfe)
+        allow create: if escreve(papelAtivo(eid))
+          && empresa(eid).get('recursos', {}).get('nfe', true) != false
+          && request.resource.data.lancadaPor == request.auth.token.email;
+        allow update: if false;
+        allow delete: if ehAdmin();
+      }
+
+      // Lojas e depósitos (Multiloja, plano Premium)
+      match /locais/{id} {
+        allow read: if ehMembro(eid) || ehAdmin();
+        allow create, update: if escreve(papelAtivo(eid)) && temRecurso(eid, 'multiloja')
+          && request.resource.data.nome is string && request.resource.data.nome.size() > 0;
+        allow delete: if ehAdmin() || (escreve(papelAtivo(eid)) && temRecurso(eid, 'multiloja'));
+      }
+
+      // Modelos com variações de tamanho e cor (Grade, plano Pro e Premium)
+      match /grades/{id} {
+        allow read: if ehMembro(eid) || ehAdmin();
+        allow create, update: if escreve(papelAtivo(eid)) && temRecurso(eid, 'grade')
+          && request.resource.data.nome is string && request.resource.data.nome.size() > 0;
+        allow delete: if ehAdmin() || (escreve(papelAtivo(eid)) && temRecurso(eid, 'grade'));
+      }
+
+      // Criar movimentação: quem pode o quê (o caixa só registra saída; ajuste direto é de responsável e gerente)
+      function movimentoPermitido(eid) {
+        let p = papelAtivo(eid);
+        let d = request.resource.data;
+        return (escreve(p) || p == 'caixa')
+          && d.tipo in ['entrada', 'saida', 'ajuste', 'transferencia']
+          && (d.tipo != 'transferencia' || temRecurso(eid, 'multiloja'))
+          && (d.tipo == 'saida'
+              || (d.tipo == 'ajuste' && gere(p))
+              || (d.tipo in ['entrada', 'transferencia'] && p != 'caixa'))
+          && d.quantidade is number
+          && d.usuario == request.auth.token.email;
+      }
+
+      match /movimentacoes/{id} {
+        allow read: if ehMembro(eid) || ehAdmin();
+        allow create: if movimentoPermitido(eid);
+        allow update: if false;
+        allow delete: if ehAdmin();
+      }
+    }
+  }
+}

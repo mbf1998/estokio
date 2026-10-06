@@ -1,0 +1,233 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Estokio: controle de estoque para pequenos negócios</title>
+  <meta name="description" content="Controle entradas e saídas em tempo real, receba o aviso antes de faltar, cuide das validades e monte a lista de compras por fornecedor. No computador e no celular. Teste grátis por 7 dias.">
+  <meta name="theme-color" content="#16233A">
+  <link rel="icon" href="assets/favicon.ico" sizes="32x32">
+  <link rel="icon" href="assets/icon.svg" type="image/svg+xml">
+  <link rel="apple-touch-icon" href="assets/apple-touch-icon.png">
+  <meta property="og:type" content="website">
+  <meta property="og:locale" content="pt_BR">
+  <meta property="og:title" content="Estokio: o estoque do seu negócio sob controle">
+  <meta property="og:description" content="Controle de estoque para mercadinhos, lojas, farmácias e distribuidoras. Veja o sistema funcionando, sem cadastro. Teste grátis por 7 dias.">
+  <meta property="og:image" content="assets/og.png">
+  <meta name="twitter:card" content="summary_large_image">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,400..800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="assets/inicio.css">
+  <script type="application/ld+json">
+  { "@context": "https://schema.org", "@type": "SoftwareApplication", "name": "Estokio", "applicationCategory": "BusinessApplication",
+    "operatingSystem": "Web, Windows, Android", "inLanguage": "pt-BR",
+    "description": "Controle de estoque para pequenos negócios, com leitor de código de barras pelo celular, alerta de reposição, validades e lista de compras por fornecedor.",
+    "offers": { "@type": "Offer", "price": "0", "priceCurrency": "BRL", "description": "Teste grátis por 7 dias" } }
+  </script>
+</head>
+<body>
+  <a class="pular" href="#conteudo">Pular para o conteúdo</a>
+
+  <header class="topo">
+    <div class="topo-in">
+      <a class="marca" href="./" aria-label="Estokio, página inicial"><img class="logo-img" src="assets/estokio-logo.svg" alt="Estokio"></a>
+      <nav class="topo-nav" aria-label="Seções">
+        <a href="#funcionalidades">Funcionalidades</a>
+        <a href="#para-quem">Segmentos</a>
+        <a href="#planos">Preços</a>
+        <a href="#perguntas">Dúvidas</a>
+      </nav>
+      <div class="topo-acoes">
+        <a class="lnk-login" href="app/index.html?entrar=1"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4.4 3.6-8 8-8s8 3.6 8 8"/></svg><span>Fazer login</span></a>
+        <a class="pilula pilula-contorno" href="app/index.html?demo=1">Ver demonstração</a>
+        <a class="pilula pilula-cheia" href="app/index.html?cadastro=1">Começar grátis</a>
+      </div>
+    </div>
+  </header>
+
+  <main id="conteudo">
+    <!-- Abertura -->
+    <section class="abertura">
+      <div class="abertura-in">
+        <div class="abertura-txt">
+          <h1>O estoque <span class="linha-rot">da sua <span class="rotativo" id="rotativo" aria-live="polite">mercearia</span></span> <span class="marca-texto">sob controle</span></h1>
+          <p class="abertura-sub">Entradas e saídas em tempo real, aviso antes de faltar, validades e lista de compras pronta por fornecedor. Tudo o que o seu negócio precisa para parar de perder venda e dinheiro.</p>
+          <div class="abertura-acoes">
+            <a class="pilula pilula-cheia pilula-grande" href="app/index.html?cadastro=1">Começar teste grátis</a>
+            <a class="pilula pilula-contorno pilula-grande" href="app/index.html?demo=1">Ver demonstração</a>
+          </div>
+          <p class="abertura-nota">7 dias com tudo liberado. Sem cartão de crédito.</p>
+        </div>
+
+        <!-- O sistema de verdade, rodando ao vivo (loja fictícia) -->
+        <div class="vitrine">
+          <a class="vitrine-quadro" href="app/index.html?demo=1" aria-label="Abrir a demonstração do Estokio, sem cadastro">
+            <span class="vitrine-tela" id="vitrine-tela">
+              <iframe id="vitrine-frame" title="Estokio funcionando com uma loja fictícia" tabindex="-1" loading="lazy" data-src="app/index.html?demo=1&amp;embed=1"></iframe>
+            </span>
+            <span class="vitrine-selo"><span class="vitrine-play" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M8 5.5v13l11-6.5z"/></svg></span>Explore ao vivo, sem cadastro</span>
+          </a>
+          <p class="vitrine-legenda">Este é o sistema de verdade, com uma loja fictícia. Clique para mexer.</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- Faixa de segmentos (no lugar de logos: ainda não citamos clientes) -->
+    <section class="segfaixa" aria-label="Tipos de negócio atendidos">
+      <div class="segfaixa-trilho">
+        <ul class="segfaixa-lista" id="segfaixa"></ul>
+      </div>
+    </section>
+
+    <!-- Do caos ao controle -->
+    <section class="bloco" id="funcionalidades">
+      <div class="bloco-in">
+        <h2 class="titulo-centro">Do <span class="t-caos">caos</span> ao <span class="t-controle">controle total</span></h2>
+        <div class="comparacao">
+          <div class="comp comp-sem">
+            <h3>Sem o Estokio</h3>
+            <ul>
+              <li>O produto acaba e você só descobre quando o cliente pede, e o fornecedor ainda leva dias para entregar</li>
+              <li>Planilha desatualizada que ninguém confia</li>
+              <li>Produto vencendo no fundo da prateleira</li>
+              <li>Compra no chute, com dinheiro parado em mercadoria que não sai</li>
+              <li>Ninguém sabe quem mexeu no estoque</li>
+            </ul>
+          </div>
+          <div class="comp comp-com">
+            <h3>Com o Estokio</h3>
+            <ul>
+              <li>Aviso na hora de pedir, contando quantos dias o seu fornecedor leva para entregar</li>
+              <li>Estoque atualizado a cada venda, pelo celular ou pelo computador</li>
+              <li>Validades em dia: sai primeiro o que vence primeiro</li>
+              <li>Lista de compras pronta, por fornecedor, enviada pelo WhatsApp</li>
+              <li>Histórico completo de cada entrada e saída, com o nome de quem fez</li>
+            </ul>
+          </div>
+        </div>
+
+        <h2 class="titulo-sec">Tudo o que o dia a dia do estoque pede</h2>
+        <ul class="recursos">
+          <li><span class="rec-ico" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M3 7V4h3M18 4h3v3M21 17v3h-3M6 20H3v-3M7 8v8M10 8v8M13 8v8M17 8v8"/></svg></span>
+            <h3>Leitor de código pelo celular</h3><p>Aponte a câmera e registre a entrada ou a saída na hora. Leitores USB do caixa também funcionam.</p></li>
+          <li><span class="rec-ico" aria-hidden="true"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="7"/><path d="M12 8.5V12l2.5 2"/></svg></span>
+            <h3>Aviso na hora de pedir</h3><p>O Estokio guarda quanto cada fornecedor demora para entregar e avisa a hora certa de pedir: antes de faltar e antes de o lote vencer.</p></li>
+          <li><span class="rec-ico" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M3 4h2l2.4 11h11L21 7H6.2"/><circle cx="9" cy="19.5" r="1.3"/><circle cx="17" cy="19.5" r="1.3"/></svg></span>
+            <h3>Compras sem esquecer nada</h3><p>Lista pronta por fornecedor, pedido enviado pelo WhatsApp e recebimento que lança as entradas de uma vez.</p></li>
+          <li><span class="rec-ico" aria-hidden="true"><svg viewBox="0 0 24 24"><rect x="3.5" y="5" width="17" height="15" rx="1.5"/><path d="M3.5 10h17M8 3v4M16 3v4M9 15l2 2 4-4"/></svg></span>
+            <h3>Validades e inventário</h3><p>Lote e validade em cada entrada, alerta do que vai vencer e inventário que mostra quanto você perdeu.</p></li>
+          <li><span class="rec-ico" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M12 15V4M7 9l5-5 5 5M4 15v5h16v-5"/></svg></span>
+            <h3>Comece pela sua planilha</h3><p>Importe os produtos do Excel em minutos. Notas fiscais de compra entram pelo XML.</p></li>
+          <li><span class="rec-ico" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/></svg></span>
+            <h3>Relatórios que mostram o dinheiro</h3><p>Curva ABC, giro de estoque e os produtos parados que estão prendendo o seu caixa.</p></li>
+          <li><span class="rec-ico" aria-hidden="true"><svg viewBox="0 0 24 24"><circle cx="9" cy="8" r="3.2"/><path d="M3 20c0-3.3 2.7-6 6-6s6 2.7 6 6"/><circle cx="17" cy="9" r="2.4"/><path d="M16 14.2c2.9.3 5 2.7 5 5.8"/></svg></span>
+            <h3>Permissões por pessoa</h3><p>Caixa só registra saídas, estoquista não vê custos e ajustes passam pela sua aprovação.</p></li>
+          <li><span class="rec-ico" aria-hidden="true"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="16" rx="1.5"/><circle cx="9" cy="10" r="2"/><path d="m21 17-5-5-9 8"/></svg></span>
+            <h3>Com a cara da sua empresa</h3><p>Seu logo e as suas cores no sistema, para toda a equipe.</p></li>
+        </ul>
+      </div>
+    </section>
+
+    <!-- Como começar -->
+    <section class="bloco bloco-tinta" id="como">
+      <div class="bloco-in">
+        <h2 class="titulo-sec">Em uma tarde, seu estoque está no ar</h2>
+        <ol class="passos">
+          <li><h3>Crie a conta</h3><p>Nome da empresa e CNPJ ou CPF. O teste de 7 dias começa na hora, com todos os recursos.</p></li>
+          <li><h3>Cadastre os produtos</h3><p>Um por um, pelo leitor de código ou de uma vez pela planilha. Defina o estoque mínimo.</p></li>
+          <li><h3>Registre o movimento</h3><p>Entradas, saídas e ajustes. O painel mostra o que repor e quanto você tem parado.</p></li>
+        </ol>
+        <div class="abertura-acoes">
+          <a class="pilula pilula-cheia pilula-grande" href="app/index.html?cadastro=1">Começar teste grátis</a>
+          <a class="pilula pilula-clara pilula-grande" href="app/index.html?demo=1">Ver demonstração</a>
+        </div>
+      </div>
+    </section>
+
+    <!-- Segmentos, com o plano que costuma servir a cada um -->
+    <section class="bloco" id="para-quem">
+      <div class="bloco-in">
+        <h2 class="titulo-sec">Feito para o seu tipo de negócio</h2>
+        <p class="bloco-intro">Cada plano traz o que o seu ramo costuma precisar. Veja qual combina com o seu.</p>
+        <div class="segmentos" id="segmentos"></div>
+      </div>
+    </section>
+
+    <!-- Preços -->
+    <section class="bloco bloco-claro" id="planos">
+      <div class="bloco-in">
+        <h2 class="titulo-centro">Preços simples, sem fidelidade</h2>
+        <p class="bloco-intro centro">Todos começam com 7 dias grátis, com tudo liberado. Sem renovação automática: você renova por Pix quando quiser.</p>
+        <div class="periodos-pg" id="periodos-pg" role="radiogroup" aria-label="Período do plano"></div>
+        <div class="planos" id="planos-lista"></div>
+        <p class="planos-inclui">Em todos os planos: leitor de código pelo celular, importação de planilha, lista de compras e pedidos de compra com recebimento, permissões por pessoa (gerente, estoquista e caixa), previsão de reposição, histórico completo e o sistema com a cara da sua empresa.</p>
+
+        <h3 class="sub-titulo" id="comparar">Compare os planos</h3>
+        <div class="tabela-comp-rolagem"><table class="tabela-comp" id="tabela-comp"></table></div>
+      </div>
+    </section>
+
+    <!-- Dúvidas -->
+    <section class="bloco" id="perguntas">
+      <div class="bloco-in bloco-estreito">
+        <h2 class="titulo-centro">Dúvidas frequentes</h2>
+        <div class="perguntas">
+          <details><summary>Preciso cadastrar cartão de crédito para testar?</summary>
+            <p>Não. Você cria a conta, informa o CNPJ ou CPF e usa por 7 dias com tudo liberado. Se quiser continuar, escolhe um plano e paga por Pix na própria tela do sistema.</p></details>
+          <details><summary>Posso ver o sistema antes de criar a conta?</summary>
+            <p>Sim. A demonstração abre na hora, sem cadastro, com uma loja fictícia de 60 dias de movimento. Você pode registrar vendas, ler códigos e gerar a lista de compras.</p></details>
+          <details><summary>O que acontece quando o teste ou o plano termina?</summary>
+            <p>O sistema fica bloqueado até você escolher um plano, mas nada é apagado. Ao pagar, você continua exatamente de onde parou.</p></details>
+          <details><summary>Funciona no celular?</summary>
+            <p>Sim, pelo navegador do celular, com o leitor de código de barras pela câmera. Também funciona no computador e tem versão para instalar no Windows.</p></details>
+          <details><summary>Consigo trazer os produtos que já tenho numa planilha?</summary>
+            <p>Sim. Baixe o modelo no próprio sistema, preencha no Excel ou no Google Planilhas e envie. Antes de gravar, o Estokio mostra o que vai entrar e aponta as linhas com erro.</p></details>
+          <details><summary>Quantas pessoas podem usar?</summary>
+            <p>O Básico tem até 2 usuários, o Pro até 5 e o Premium até 10. Cada pessoa tem o próprio login e um papel (gerente, estoquista ou caixa) que define o que pode fazer.</p></details>
+          <details><summary>Posso trocar de plano depois?</summary>
+            <p>Sim, a qualquer momento, pelo próprio sistema. A troca vale na hora e os dias que ainda restam continuam valendo, somados ao novo período. Para descer de plano, a empresa precisa caber nos limites do plano menor, como o número de usuários.</p></details>
+          <details><summary>Meus dados ficam seguros?</summary>
+            <p>Cada empresa só enxerga os próprios dados, e o histórico de movimentações não pode ser apagado. Você pode baixar uma cópia completa a qualquer momento e pedir a exclusão definitiva, como prevê a LGPD.</p></details>
+          <details><summary>O Estokio emite nota fiscal?</summary>
+            <p>Não. O Estokio cuida do estoque. Nos planos Pro e Premium, ele lê o XML das notas de compra e lança as entradas de uma vez.</p></details>
+        </div>
+      </div>
+    </section>
+
+    <!-- Chamada final -->
+    <section class="final">
+      <div class="final-in">
+        <h2>Teste o Estokio com os seus produtos.</h2>
+        <p>7 dias grátis, com tudo liberado. Sem cartão.</p>
+        <div class="abertura-acoes">
+          <a class="pilula pilula-cheia pilula-grande" href="app/index.html?cadastro=1">Começar teste grátis</a>
+          <a class="pilula pilula-clara pilula-grande" href="app/index.html?demo=1">Ver demonstração</a>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <footer class="rodape">
+    <div class="rodape-in">
+      <span class="marca marca-pequena"><img class="logo-img" src="assets/estokio-logo-claro.svg" alt="Estokio"></span>
+      <nav aria-label="Rodapé">
+        <a href="app/index.html?entrar=1">Fazer login</a>
+        <a href="app/index.html?demo=1">Demonstração</a>
+        <a href="#planos">Preços</a>
+        <a data-whatsapp href="#" hidden>WhatsApp</a>
+      </nav>
+      <small>© <span id="ano"></span> Estokio. Controle de estoque para pequenos negócios.</small>
+    </div>
+  </footer>
+
+  <a class="zap-flutuante" data-whatsapp href="#" hidden aria-label="Falar no WhatsApp">
+    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 20l1.3-4A8 8 0 1 1 8 18.7z"/><path d="M9 9.5c0 3 2.5 5.5 5.5 5.5l1-1.5-2-1-1 .8a4 4 0 0 1-1.8-1.8l.8-1-1-2z"/></svg>
+  </a>
+
+  <!-- Mesma configuração do gestor: apiKey e projectId para ler preços e o WhatsApp -->
+  <script src="app/js/firebase-config.js"></script>
+  <script src="app/js/assinatura.js"></script>
+  <script src="assets/inicio.js"></script>
+</body>
+</html>

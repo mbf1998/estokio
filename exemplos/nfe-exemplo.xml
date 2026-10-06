@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<nfeProc xmlns="http://www.portalfiscal.inf.br/nfe" versao="4.00"><NFe><infNFe Id="NFe26260912345678000190550010000045611234567890" versao="4.00">
+<ide><cUF>26</cUF><nNF>4561</nNF><serie>1</serie><dhEmi>2026-09-28T10:15:00-03:00</dhEmi></ide>
+<emit><CNPJ>12345678000190</CNPJ><xNome>DISTRIBUIDORA LITORAL COMERCIO DE BEBIDAS LTDA</xNome><xFant>Distribuidora Litoral</xFant><enderEmit><fone>8133334444</fone></enderEmit></emit>
+<det nItem="1"><prod><cProd>AG500</cProd><cEAN>7891234567895</cEAN><xProd>AGUA MINERAL S/GAS 500ML CX 12</xProd><uCom>CX</uCom><qCom>10.0000</qCom><vUnCom>9.2000</vUnCom><vProd>92.00</vProd></prod></det>
+<det nItem="2"><prod><cProd>RF350</cProd><cEAN>SEM GTIN</cEAN><xProd>REFRIGERANTE LATA 350ML FD 12</xProd><uCom>FD</uCom><qCom>6.0000</qCom><vUnCom>31.5000</vUnCom><vProd>189.00</vProd></prod></det>
+<det nItem="3"><prod><cProd>SUCO1L</cProd><cEAN>7896666000017</cEAN><xProd>SUCO DE UVA INTEGRAL 1L</xProd><uCom>UN</uCom><qCom>24.0000</qCom><vUnCom>8.9000</vUnCom><vProd>213.60</vProd></prod></det>
+<total><ICMSTot><vNF>494.60</vNF></ICMSTot></total>
+</infNFe></NFe></nfeProc>
