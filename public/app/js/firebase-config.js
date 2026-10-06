@@ -9,10 +9,19 @@
  * MODO DEMONSTRAÇÃO: os dados ficam salvos só neste navegador/computador.
  */
 window.ESTOKIO_FIREBASE_CONFIG = {
-  apiKey: "AIzaSyDMivyhFHMLX0g5ouywdtQYqZFkESWlfJ4",
-  authDomain: "estokio.firebaseapp.com",
-  projectId: "estokio",
-  storageBucket: "estokio.firebasestorage.app",
-  messagingSenderId: "151661999751",
-  appId: "1:151661999751:web:ca2a6392a0e62bf27bea22"
+  apiKey: "",
+  authDomain: "",
+  projectId: "",
+  storageBucket: "",
+  messagingSenderId: "",
+  appId: ""
 };
+
+/*
+ * Tela inicial de quem abre o gestor (/app/) sem estar logado:
+ *   'site'  = página de apresentação na raiz do domínio, com o sistema ao vivo (padrão)
+ *   'demo'  = direto na demonstração com a loja fictícia
+ *   'login' = tela de login
+ * No app Android a tela inicial é sempre o login.
+ */
+window.ESTOKIO_TELA_INICIAL = 'site';

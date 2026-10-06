@@ -191,7 +191,7 @@ Quem abre o gestor (`/app/`) sem estar logado volta para a página inicial. Para
 | Clica em **Fazer login** | O login |
 | Clica em **Começar grátis** | O cadastro |
 | Recebe um link de ativação ou convite | O cadastro com o código preenchido |
-| Acabou de sair da conta | O login, para entrar com outra conta |
+| Clica em **Sair**, dentro do sistema | A página inicial. Para entrar com outra conta, é só clicar em **Fazer login** de novo |
 | Já está logado e abre `/app/` | Direto na empresa (ou no painel admin, se for você) |
 
 A loja da demonstração tem:

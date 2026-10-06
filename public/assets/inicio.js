@@ -158,7 +158,7 @@
       return `<article class="seg">
         <h3>${esc(sg.nome)}</h3>
         <p>${esc(sg.dor)}</p>
-        <div class="seg-pacotes">${pl ? `<span class="seg-pk"><strong>${esc(pl.nome)}</strong> a partir de ${cf.format(Ass.preco(pl, 'mensal'))}/mês</span>` : ''}</div>
+        <div class="seg-pacotes">${pl ? `<span class="seg-pk">Plano <strong>${esc(pl.nome)}</strong></span>` : ''}</div>
         <p class="seg-porque">${esc(sg.porque)}</p>
       </article>`;
     }).join('');

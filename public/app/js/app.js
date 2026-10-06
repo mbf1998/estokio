@@ -1907,9 +1907,7 @@
       case 'limpar-filtros':
         Object.assign(state.f, { q: '', cat: '', nivel: '', mq: '', tipo: '', de: '', ate: '' });
         render(); break;
-      case 'logout':
-        try { sessionStorage.setItem('estokio:mostrarLogin', '1'); } catch (e) { /* ignora */ }
-        DB.logout(); break;
+      case 'logout': DB.logout(); break;
       default: if (ACOES_MOD[action]) ACOES_MOD[action](t, e);
     }
   });
