@@ -341,13 +341,14 @@
     const vieramTeste = es.filter((e) => e.origem === 'teste');
     const convertidas = vieramTeste.filter((e) => !emTeste(e)).length;
     const pend = pedidosPendentes();
+    const pedExc = pedidosExclusaoPendentes();
     const venc = es.filter((e) => vencendo(e)).length;
     const parados = es.filter(semUso).length;
 
     const qq = norm(state.q);
     const lista = es
       .filter((e) => !qq || norm(`${e.nome} ${e.cnpj} ${e.donoEmail} ${e.contatoEmail} ${e.contatoNome} ${e.planoNome}`).includes(qq))
-      .filter((e) => !state.filtro || (state.filtro === 'semuso' ? semUso(e) : state.filtro === 'vencendo' ? vencendo(e) : situacao(e) === state.filtro))
+      .filter((e) => !state.filtro || (state.filtro === 'semuso' ? semUso(e) : state.filtro === 'vencendo' ? vencendo(e) : state.filtro === 'exclusao' ? Boolean(e.pedidoExclusao) : situacao(e) === state.filtro))
       .sort((a, b) => toMs(b.criadoEm) - toMs(a.criadoEm));
 
     return `
@@ -359,11 +360,12 @@
         <div class="stat"><span class="stat-label">Recebido neste mês</span><strong class="stat-value">${cf.format(recebidoMes)}</strong><span class="stat-sub"><a class="link-btn" href="#/financeiro">Ver financeiro</a></span></div>
       </section>
       ${pend.length ? `<a class="alerta-pedidos" href="#/financeiro"><strong>${plural(pend.length, 'pagamento Pix aguardando', 'pagamentos Pix aguardando')} sua confirmação</strong><span>Confira no banco e libere as empresas em Financeiro</span></a>` : ''}
+      ${pedExc.length ? `<button type="button" class="alerta-pedidos alerta-exclusao" data-action="filtrar-exclusao"><strong>${plural(pedExc.length, 'pedido de exclusão', 'pedidos de exclusão')} de dados aguardando revisão</strong><span>Um direito da LGPD: revise e confirme em até 15 dias</span></button>` : ''}
       <div class="toolbar">
         <label class="search"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="11" cy="11" r="6"/><path d="m20 20-4.5-4.5"/></svg>
           <input type="search" id="a-busca" value="${esc(state.q)}" placeholder="Buscar por empresa, CNPJ, e-mail ou plano" aria-label="Buscar empresas"></label>
         <select id="a-filtro" aria-label="Filtrar">
-          ${[['', 'Todas as situações'], ['teste', 'Em teste grátis'], ['testefim', 'Teste encerrado, sem pagar'], ['aguardando', 'Aguardando ativação'], ['ativa', 'Pagantes ativas'], ['vencendo', 'Vencem em até 7 dias'], ['vencida', 'Vencidas'], ['semuso', `Sem uso há ${SEM_USO_DIAS} dias`], ['suspensa', 'Suspensas']]
+          ${[['', 'Todas as situações'], ['teste', 'Em teste grátis'], ['testefim', 'Teste encerrado, sem pagar'], ['aguardando', 'Aguardando ativação'], ['ativa', 'Pagantes ativas'], ['vencendo', 'Vencem em até 7 dias'], ['vencida', 'Vencidas'], ['semuso', `Sem uso há ${SEM_USO_DIAS} dias`], ['suspensa', 'Suspensas'], ['exclusao', 'Pediu exclusão']]
             .map(([v, t]) => `<option value="${v}" ${state.filtro === v ? 'selected' : ''}>${t}</option>`).join('')}
         </select>
       </div>
@@ -378,7 +380,7 @@
           const c = conviteDe(e.id, sit === 'aguardando' ? 'empresa' : 'renovacao');
           const ua = toMs(e.ultimoAcesso);
           return `<tr class="linha-link" data-abrir="${e.id}">
-            <td><div class="emp-cell">${logoEmp(e)}<div><a class="p-name emp-link" href="#/empresa/${e.id}">${esc(e.nome)}</a><span class="p-sku">${esc(e.donoEmail || e.contatoNome || e.contatoEmail || '')}</span></div></div></td>
+            <td><div class="emp-cell">${logoEmp(e)}<div><a class="p-name emp-link" href="#/empresa/${e.id}">${esc(e.nome)}</a>${e.pedidoExclusao ? '<span class="chip st-erro chip-exclusao">Pediu exclusão</span>' : ''}<span class="p-sku">${esc(e.donoEmail || e.contatoNome || e.contatoEmail || '')}</span></div></div></td>
             <td>${chipSit(e)}</td>
             <td><span class="p-name">${esc(e.planoNome) || '<span class="muted">Sem plano</span>'}</span><span class="p-sku">${num(e.totalUsuarios)} de ${num(e.maxUsuarios) || MAX_USUARIOS_PADRAO} usuários</span></td>
             <td class="nowrap">${txtAcesso(e)}</td>
@@ -525,6 +527,14 @@
 
       <section class="panel det-bloco lgpd">
         <header class="panel-head"><h2>Dados da empresa (LGPD)</h2></header>
+        ${e.pedidoExclusao ? `<div class="pend-bloco pend-exclusao">
+          <h3>Pedido de exclusão, enviado em ${df.format(toMs(e.pedidoExclusao.solicitadoEm))}</h3>
+          <p>Por <strong>${esc(e.pedidoExclusao.solicitadoPor)}</strong>${e.pedidoExclusao.motivo ? `: "${esc(e.pedidoExclusao.motivo)}"` : ''}</p>
+          <div class="grupo-acoes">
+            <button class="btn btn-danger" data-action="excluir" data-id="${e.id}">Excluir agora</button>
+            <button class="btn" data-action="recusar-exclusao" data-id="${e.id}">Recusar pedido</button>
+          </div>
+        </div>` : ''}
         <div class="imp-text stack">
           <p>Exporte todos os dados da empresa num arquivo JSON quando o cliente pedir uma cópia. A exclusão apaga definitivamente estoque, movimentações, fornecedores, notas, usuários e convites. As cobranças ficam guardadas, porque são registros financeiros que a lei obriga a manter.</p>
           <div class="grupo-acoes lgpd-acoes">
@@ -892,6 +902,7 @@
     return num(pl.preco);
   }
   const pedidosPendentes = () => state.pedidos.filter((p) => p.status === 'aguardando').sort((a, b) => toMs(a.criadoEm) - toMs(b.criadoEm));
+  const pedidosExclusaoPendentes = () => state.empresas.filter((e) => e.pedidoExclusao).sort((a, b) => toMs(a.pedidoExclusao.solicitadoEm) - toMs(b.pedidoExclusao.solicitadoEm));
 
   function tabelaPedidos(lista, comEmpresa) {
     return `<div class="table-wrap flat"><table class="table">
@@ -1046,6 +1057,8 @@
       case 'codigo': modalCodigo(emp, t.dataset.tipo); break;
       case 'ver-codigo': { const c = state.convites.find((x) => x.id === t.dataset.codigo); if (c) mostrarCodigo(empById(c.empresaId), c); break; }
       case 'cobrar': modalMensagem(`Cobrar ${esc(emp.nome)}`, `Lembrete de renovação com o valor${state.config.chavePix ? ' e a chave Pix' : ''}. Revise a mensagem antes de enviar.${state.config.chavePix ? '' : ' Cadastre sua chave Pix em Configurações para ela entrar aqui.'}`, null, textoCobranca(emp), telefoneDe(emp), emp, 'lembrete'); break;
+      case 'filtrar-exclusao': state.filtro = 'exclusao'; state.q = ''; render(); break;
+      case 'recusar-exclusao': modalRecusarExclusao(emp); break;
       case 'pagar': modalPagamento(state.cobrancas.find((c) => c.id === t.dataset.codigo)); break;
       case 'cancelar-cobranca': cancelarCobranca(state.cobrancas.find((c) => c.id === t.dataset.codigo)); break;
       case 'ativo': alterarAtivo(emp, t.dataset.valor === '1'); break;
@@ -1484,6 +1497,28 @@
     finally { if (btn) { btn.disabled = false; btn.textContent = 'Exportar dados (JSON)'; } }
   }
 
+  function modalRecusarExclusao(emp) {
+    const m = openModal(`
+      <form id="f-recusar-exc" novalidate>
+        ${head('Recusar pedido de exclusão')}
+        <div class="modal-body">
+          <p class="confirm-text">A empresa <strong>${esc(emp.nome)}</strong> continua normalmente, com os dados intactos. Avise o cliente por fora (e-mail ou WhatsApp) explicando o motivo, se for o caso.</p>
+          <label class="field"><span>Nota para o histórico (opcional)</span><input name="nota" maxlength="160" placeholder="Ex.: Falei com o cliente, ele decidiu continuar"></label>
+          <p class="form-error" role="alert" hidden></p>
+        </div>
+        <footer class="modal-foot"><button type="button" class="btn" data-action="fechar">Cancelar</button><button class="btn btn-primary" type="submit">Recusar o pedido</button></footer>
+      </form>`);
+    const f = $('#f-recusar-exc', m);
+    f.addEventListener('submit', async (ev) => {
+      ev.preventDefault();
+      const btn = f.querySelector('[type=submit]'); btn.disabled = true;
+      try {
+        await comLog('recusar_exclusao', emp, f.nota.value.trim() || 'Sem nota', (b) => b.update(db.collection('empresas').doc(emp.id), { pedidoExclusao: null }));
+        closeModal(); toast('Pedido recusado. A empresa continua ativa.');
+      } catch (x) { erroForm(f, msgErro(x)); btn.disabled = false; }
+    });
+  }
+
   function modalExcluir(emp) {
     const m = openModal(`
       <form id="f-excluir" novalidate>
@@ -1493,7 +1528,7 @@
           <p class="confirm-text">Se o cliente pediu uma cópia, exporte os dados antes.</p>
           <button type="button" class="btn" data-action="exportar" data-id="${emp.id}">Exportar dados antes (JSON)</button>
           <label class="field"><span>Para confirmar, digite o nome da empresa: ${esc(emp.nome)}</span><input name="confirma" autocomplete="off"></label>
-          <label class="field"><span>Motivo</span><input name="motivo" maxlength="160" placeholder="Ex.: Pedido de exclusão do cliente por e-mail em 10/10"></label>
+          <label class="field"><span>Motivo</span><input name="motivo" maxlength="160" placeholder="Ex.: Pedido de exclusão do cliente por e-mail em 10/10" value="${emp.pedidoExclusao ? esc(`Pedido do cliente em ${dfd.format(toMs(emp.pedidoExclusao.solicitadoEm))}${emp.pedidoExclusao.motivo ? `: ${emp.pedidoExclusao.motivo}` : ''}`) : ''}"></label>
           <p class="progresso muted" id="exc-prog" hidden></p>
           <p class="form-error" role="alert" hidden></p>
         </div>

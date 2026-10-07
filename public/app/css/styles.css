@@ -1022,3 +1022,10 @@ html.embutido body { overflow: hidden; }
 .auth-termos { flex-direction: column; align-items: flex-start; gap: 6px; margin: 2px 0 4px; line-height: 1.4; }
 .auth-termos input { flex: none; }
 .auth-termos a { color: var(--adj); font-weight: 650; text-decoration: underline; }
+
+/* Central de Privacidade: aceite, exportação e pedido de exclusão */
+.lgpd-panel .btn { margin-top: 10px; }
+.exclusao-bloco, .exclusao-pend { margin-top: 20px; padding-top: 16px; border-top: 1px solid var(--line); }
+.exclusao-pend { background: var(--warn-bg); color: var(--warn); border-top: none; border-radius: var(--r-sm); padding: 14px 16px; }
+.exclusao-pend p { margin: 0 0 10px; }
+.exclusao-pend .btn { margin-top: 0; }

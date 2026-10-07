@@ -298,8 +298,18 @@ service cloud.firestore {
           && mudou().hasOnly(['ultimoAcesso'])
           && request.resource.data.ultimoAcesso == request.time;
       }
+      // Responsável pede a exclusão definitiva da conta (direito da LGPD) ou cancela o próprio pedido.
+      // Isto só grava o pedido: quem apaga de fato é o admin, depois de revisar (como já era antes).
+      function pedirExclusao() {
+        let d = request.resource.data;
+        return ehDono(eid) && mudou().hasOnly(['pedidoExclusao'])
+          && (d.pedidoExclusao == null
+              || (d.pedidoExclusao.solicitadoPor == request.auth.token.email
+                  && d.pedidoExclusao.solicitadoEm == request.time
+                  && d.pedidoExclusao.motivo is string && d.pedidoExclusao.motivo.size() <= 300));
+      }
 
-      allow update: if ehAdmin() || ativar() || renovar() || editarMarca() || entrarEquipe() || removerMembro() || registrarAcesso();
+      allow update: if ehAdmin() || ativar() || renovar() || editarMarca() || entrarEquipe() || removerMembro() || registrarAcesso() || pedirExclusao();
 
       // ------------------------------------------------------------ membros
       match /membros/{m} {

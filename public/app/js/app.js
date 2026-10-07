@@ -30,6 +30,8 @@
   const norm = (s) => String(s || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
   const nf = new Intl.NumberFormat('pt-BR', { maximumFractionDigits: 3 });
   const cf = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' });
+  /** Campos dentro de um objeto aninhado (como pedidoExclusao) não passam pela conversão de toPlain(): aceita Timestamp do Firestore, Date ou número. */
+  const msDe = (v) => (v && typeof v.toDate === 'function' ? v.toDate().getTime() : v instanceof Date ? v.getTime() : num(v));
   const df = new Intl.DateTimeFormat('pt-BR', { dateStyle: 'short', timeStyle: 'short' });
   const dfd = new Intl.DateTimeFormat('pt-BR', { dateStyle: 'short' });
   const TERMOS_VERSAO = '2.0'; // precisa bater com a "Versão" escrita no topo de public/termos.html
@@ -119,7 +121,7 @@
   const state = {
     user: null, perfil: null, empresa: null, tela: null,
     produtos: [], movs: [], cats: [], membros: [], convites: [], fornecedores: [], notas: [], locais: [], grades: [],
-    solicitacoes: [], pedidosCompra: [], inventarios: [], meuPapel: null, regrasAntigas: false,
+    solicitacoes: [], pedidosCompra: [], inventarios: [], meuPapel: null, regrasAntigas: false, aceiteInfo: undefined,
     compra: carregarPrefCompra(),
     imp: { aba: 'planilha', registros: null, arquivo: '', reconhecidas: [], ignoradas: [], atualizar: true, ajustarQtd: false, analise: null, nfe: null, ocupado: false },
     pararScanner: null,
@@ -875,6 +877,25 @@
     return src ? `<img class="${classe}-img" src="${esc(src)}" alt="">` : `<span class="${classe}-ini">${esc(Marca.iniciais(emp.nome))}</span>`;
   }
 
+  /** Central de Privacidade: quando aceitou os termos, baixar os dados, e pedir (ou cancelar) a exclusão definitiva. */
+  function lgpdBodyHTML() {
+    const emp = state.empresa, pedido = emp && emp.pedidoExclusao;
+    const info = state.aceiteInfo;
+    return `
+      <p>Baixe uma cópia completa dos dados da empresa no Estokio: produtos, movimentações, fornecedores, categorias, notas lançadas e usuários, num arquivo JSON.</p>
+      ${info && typeof info === 'object' ? `<p class="muted">Você aceitou os <a href="../termos.html" target="_blank" rel="noopener">termos do Estokio</a> (versão ${esc(info.versao)}) em ${df.format(msDe(info.aceitoEm))}.</p>` : ''}
+      <button class="btn" data-action="exportar-dados">${icon('exportar')}Baixar todos os dados</button>
+      ${!ehDono() ? '' : pedido ? `
+      <div class="exclusao-pend">
+        <p><strong>Pedido de exclusão enviado em ${df.format(msDe(pedido.solicitadoEm))}.</strong> Assim que revisarmos, a empresa e todos os dados são apagados definitivamente, sem volta. Enquanto isso, o sistema continua funcionando normalmente.</p>
+        <button class="btn" data-action="cancelar-exclusao">Cancelar o pedido</button>
+      </div>` : `
+      <div class="exclusao-bloco">
+        <p class="muted">Quer encerrar de vez? Você pode pedir a exclusão definitiva da empresa e de todos os dados, um direito garantido pela LGPD.</p>
+        <button class="btn btn-danger" data-action="pedir-exclusao">${icon('excluir')}Solicitar exclusão da minha conta</button>
+      </div>`}`;
+  }
+
   function empresaFormHTML(emp, modo) {
     const p = Marca.hexOk(emp.corPrimaria) ? emp.corPrimaria : Marca.PADRAO.corPrimaria;
     const d = Marca.hexOk(emp.corDestaque) ? emp.corDestaque : Marca.PADRAO.corDestaque;
@@ -1617,13 +1638,10 @@
           </div>
         </section>
         ${empresaFormHTML(state.empresa, 'config')}
-        <section class="panel lgpd-panel">
-          <header class="panel-head"><h2>Seus dados</h2></header>
-          <div class="imp-text stack">
-            <p>Baixe uma cópia completa dos dados da empresa no Estokio: produtos, movimentações, fornecedores, categorias, notas lançadas e usuários, num arquivo JSON. Para pedir a exclusão definitiva dos dados, fale com o suporte do Estokio.</p>
-            <button class="btn" data-action="exportar-dados">${icon('exportar')}Baixar todos os dados</button>
-          </div>
-        </section>`,
+        ${DB.apresentacao ? '' : `<section class="panel lgpd-panel">
+          <header class="panel-head"><h2>Central de Privacidade</h2></header>
+          <div id="lgpd-body" class="imp-text stack">${lgpdBodyHTML()}</div>
+        </section>`}`,
       body() {
         const emp = state.empresa;
         if (DB.apresentacao) {
@@ -1660,7 +1678,14 @@
             <button class="btn btn-primary" data-action="escolher-plano">${emTeste() ? 'Escolher plano' : 'Renovar ou mudar de plano'}</button>
           </div>`;
       },
-      mount: () => { montarEmpresaForm($('#view #f-emp'), state.empresa, 'config'); if ($('#renovar-area')) formRenovacao($('#renovar-area')); }
+      mount: () => {
+        montarEmpresaForm($('#view #f-emp'), state.empresa, 'config');
+        if ($('#renovar-area')) formRenovacao($('#renovar-area'));
+        if (!DB.apresentacao && state.aceiteInfo === undefined) {
+          state.aceiteInfo = null; // evita buscar de novo enquanto a resposta não chega
+          DB.lerAceite(state.user.uid).then((info) => { state.aceiteInfo = info || false; if ($('#lgpd-body')) $('#lgpd-body').innerHTML = lgpdBodyHTML(); });
+        }
+      }
     }
   };
 
@@ -1731,6 +1756,9 @@
     const rotaInfo = ROUTES[state.route];
     if (rotaInfo.recurso && !recurso(rotaInfo.recurso)) return;
     if (body) body.innerHTML = views[state.route].body();
+    // A Central de Privacidade fica em shell(), fora de #view-body: refresh() não a alcançaria sem isto
+    const lgpd = $('#lgpd-body');
+    if (lgpd) lgpd.innerHTML = lgpdBodyHTML();
   }
 
   function atualizarAviso() {
@@ -1866,6 +1894,8 @@
       case 'novo-produto': productForm(); break;
       case 'editar-produto': productForm(prodById(id)); break;
       case 'excluir-produto': excluirProduto(id); break;
+      case 'pedir-exclusao': modalPedirExclusao(); break;
+      case 'cancelar-exclusao': cancelarPedidoExclusao(t); break;
       case 'aprovar-ajuste': resolverAjuste(id, true, t); break;
       case 'recusar-ajuste': resolverAjuste(id, false, t); break;
       case 'mov': movementForm({ produtoId: id, tipo: t.dataset.tipo }); break;
@@ -2894,6 +2924,37 @@
   $('#view').addEventListener('change', aoMudarCampo);
 
   /* ---------- CSV ---------- */
+  /** Pedido de exclusão definitiva da empresa (direito da LGPD). Só grava o pedido; quem apaga é o admin, depois de revisar. */
+  function modalPedirExclusao() {
+    const m = openModal(`
+      <form id="f-exclusao" novalidate>
+        ${modalHead('Solicitar exclusão definitiva')}
+        <div class="modal-body">
+          <p class="confirm-text">Isto pede a exclusão <strong>definitiva</strong> da empresa ${esc(state.empresa.nome)} e de todos os dados: estoque, movimentações, fornecedores, notas, usuários. Não é instantâneo — alguém do Estokio revisa o pedido antes de apagar, e o sistema continua funcionando normalmente até lá. Você pode cancelar o pedido a qualquer momento, enquanto ele não for atendido.</p>
+          <p class="confirm-text">Se quiser uma cópia antes, baixe os dados pela Central de Privacidade antes de confirmar.</p>
+          <label class="field"><span>Motivo (opcional, ajuda a gente a melhorar)</span><textarea name="motivo" rows="2" maxlength="300" placeholder="Por que você está saindo?"></textarea></label>
+          <p class="form-error" role="alert" hidden></p>
+        </div>
+        <footer class="modal-foot"><button type="button" class="btn" data-action="close-modal">Cancelar</button><button class="btn btn-danger" type="submit">Solicitar exclusão</button></footer>
+      </form>`);
+    const f = $('#f-exclusao', m);
+    f.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const btn = f.querySelector('[type=submit]'); setBusy(btn, true, 'Enviando…');
+      try {
+        await DB.solicitarExclusao(f.motivo.value.trim(), state.user);
+        closeModal();
+        toast('Pedido de exclusão enviado. A gente revisa e confirma com você antes de apagar qualquer coisa.');
+      } catch (err) { showFormError(f, msgErro(err)); setBusy(btn, false); }
+    });
+  }
+
+  async function cancelarPedidoExclusao(btn) {
+    setBusy(btn, true, 'Cancelando…');
+    try { await DB.cancelarPedidoExclusao(); toast('Pedido de exclusão cancelado.'); }
+    catch (err) { toast(msgErro(err), 'erro'); setBusy(btn, false); }
+  }
+
   async function exportarDados(btn) {
     setBusy(btn, true, 'Preparando…');
     try {

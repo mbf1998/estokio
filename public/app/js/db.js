@@ -471,6 +471,14 @@
           ['membros', 'produtos', 'categorias', 'fornecedores', 'movimentacoes', 'notas'].map(ler));
         return { exportadoEm: new Date().toISOString(), empresa: { id: emp.id, ...limpar(emp.data()) }, membros, produtos, categorias, fornecedores, movimentacoes, notas };
       },
+      /** Pedido de exclusão definitiva (direito da LGPD): só grava o pedido; quem apaga de fato é o admin, depois de revisar. */
+      solicitarExclusao: (motivo, user) => empRef().update({ pedidoExclusao: { solicitadoPor: user.email, solicitadoEm: ts(), motivo: (motivo || '').slice(0, 300) } }),
+      cancelarPedidoExclusao: () => empRef().update({ pedidoExclusao: null }),
+      /** O próprio registro de aceite dos termos (data e versão), para mostrar na Central de Privacidade. */
+      async lerAceite(uid) {
+        try { const s = await db.collection('aceites').doc(uid).get(); return s.exists ? toPlain(s) : null; }
+        catch (e) { return null; }
+      },
 
       /* ---- renovação do acesso (somente responsável) ---- */
       async renovarAcesso(c, empresa, user) {
@@ -1046,6 +1054,9 @@
         const { empresa, membros, produtos, categorias, fornecedores, movimentacoes, notas } = data;
         return { exportadoEm: new Date().toISOString(), empresa, membros, produtos, categorias, fornecedores, movimentacoes, notas };
       },
+      async solicitarExclusao(motivo, user) { await tick(); data.empresa.pedidoExclusao = { solicitadoPor: user.email, solicitadoEm: Date.now(), motivo: (motivo || '').slice(0, 300) }; persist(); emit('empresa'); },
+      async cancelarPedidoExclusao() { await tick(); data.empresa.pedidoExclusao = null; persist(); emit('empresa'); },
+      async lerAceite() { return null; },
       async renovarAcesso(c) {
         await tick();
         const novo = novoVencimento(data.empresa.acessoAte, c.dias);
