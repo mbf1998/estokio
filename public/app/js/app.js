@@ -67,7 +67,8 @@
     cadeado: '<rect x="5" y="11" width="14" height="10" rx="1.5"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/>',
     pix: '<path d="M12 3.5 20.5 12 12 20.5 3.5 12z"/><path d="M8.5 12h7"/>',
     whatsapp: '<path d="M4 20l1.3-4A8 8 0 1 1 8 18.7z"/><path d="M9 9.5c0 3 2.5 5.5 5.5 5.5l1-1.5-2-1-1 .8a4 4 0 0 1-1.8-1.8l.8-1-1-2z"/>',
-    gerar: '<path d="M4 4v6h6"/><path d="M20 20v-6h-6"/><path d="M4.5 15a8 8 0 0 0 14.1 3.4M19.5 9A8 8 0 0 0 5.4 5.6"/>'
+    gerar: '<path d="M4 4v6h6"/><path d="M20 20v-6h-6"/><path d="M4.5 15a8 8 0 0 0 14.1 3.4M19.5 9A8 8 0 0 0 5.4 5.6"/>',
+    venda: '<path d="M6 3h12l2 4v13a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V7z"/><path d="M8 7V5a4 4 0 0 1 8 0v2M9 11h6M9 15h4"/>'
   };
   const icon = (n) => `<svg class="ic" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">${ICONS[n] || ''}</svg>`;
 
@@ -121,7 +122,7 @@
   const state = {
     user: null, perfil: null, empresa: null, tela: null,
     produtos: [], movs: [], cats: [], membros: [], convites: [], fornecedores: [], notas: [], locais: [], grades: [],
-    solicitacoes: [], pedidosCompra: [], inventarios: [], meuPapel: null, regrasAntigas: false, aceiteInfo: undefined,
+    solicitacoes: [], pedidosCompra: [], pedidosVenda: [], inventarios: [], meuPapel: null, regrasAntigas: false, aceiteInfo: undefined,
     compra: carregarPrefCompra(),
     imp: { aba: 'planilha', registros: null, arquivo: '', reconhecidas: [], ignoradas: [], atualizar: true, ajustarQtd: false, analise: null, nfe: null, ocupado: false },
     pararScanner: null,
@@ -1378,6 +1379,7 @@
       actions: () => `
         ${botaoLer()}
         <button class="btn" data-action="exportar-movs">${icon('exportar')}Exportar CSV</button>
+        <button class="btn" data-action="nova-venda">${icon('venda')}Nova venda</button>
         <button class="btn btn-primary" data-action="nova-mov">${icon('plus')}Registrar movimentação</button>`,
       shell: () => `
         <div class="toolbar">
@@ -1394,7 +1396,8 @@
         if (!state.loaded.movimentacoes) return loading();
         if (!state.movs.length) {
           return emptyState('Nenhuma movimentação ainda', 'Registre entradas de mercadoria, saídas e ajustes de inventário. Cada uma atualiza o estoque na hora e fica no histórico.',
-            `<button class="btn btn-primary" data-action="nova-mov">${icon('plus')}Registrar movimentação</button>`);
+            `<button class="btn" data-action="nova-venda">${icon('venda')}Nova venda</button>
+             <button class="btn btn-primary" data-action="nova-mov">${icon('plus')}Registrar movimentação</button>`);
         }
         const lista = movsFiltradas();
         if (!lista.length) return `<p class="no-results">Nenhuma movimentação corresponde aos filtros. <button class="link-btn" data-action="limpar-filtros">Limpar filtros</button></p>`;
@@ -1900,6 +1903,7 @@
       case 'recusar-ajuste': resolverAjuste(id, false, t); break;
       case 'mov': movementForm({ produtoId: id, tipo: t.dataset.tipo }); break;
       case 'nova-mov': movementForm({}); break;
+      case 'nova-venda': vendaForm(); break;
       case 'exportar-produtos': exportarProdutos(); break;
       case 'exportar-movs': exportarMovs(); break;
       case 'renomear-cat': renomearCategoria(id); break;
@@ -2187,6 +2191,64 @@
         marcarTour('mov');
         closeModal();
         toast(`${TIPOS[dados.tipo]} registrada.`);
+      } catch (err) { showFormError(form, msgErro(err)); setBusy(btn, false); }
+    });
+  }
+
+  /* ---------- Nova venda: várias saídas de uma vez, viram um pedido numerado com recibo em PDF ---------- */
+  const proximoNumeroVenda = () => state.pedidosVenda.reduce((m, v) => Math.max(m, num(v.numero)), 0) + 1;
+  function vendaForm() {
+    const ps = sortedProds().filter((x) => !ehKit(x));
+    if (!ps.length) { toast('Cadastre um produto antes de registrar uma venda.', 'erro'); return; }
+    const opcoes = (sel) => ps.map((x) => `<option value="${x.id}" ${x.id === sel ? 'selected' : ''}>${esc(x.nome)}${x.sku ? ` (${esc(x.sku)})` : ''}</option>`).join('');
+    const linha = (i) => `<div class="pc-linha venda-linha">
+      <select name="vdItem" aria-label="Produto"><option value="">Escolha um produto</option>${opcoes(i && i.produtoId)}</select>
+      <input name="vdQtd" type="number" min="0" step="any" inputmode="decimal" value="${esc((i && i.qtd) ?? '')}" placeholder="Qtd" aria-label="Quantidade">
+      <button type="button" class="icon-btn i-del" data-vd-tirar aria-label="Tirar item">${icon('excluir')}</button></div>`;
+    const m = openModal(`
+      <form id="f-venda" novalidate>
+        ${modalHead('Nova venda')}
+        <div class="modal-body">
+          <p class="confirm-text">Cada item sai do estoque na hora. No fim, o pedido fica no histórico com um recibo para imprimir ou salvar em PDF.</p>
+          <div class="pc-cab"><span>Produto</span><span>Quantidade</span><span></span></div>
+          <div class="pc-lista venda-lista">${linha()}</div>
+          <button type="button" class="btn btn-sm" data-vd-mais>${icon('plus')}Adicionar produto</button>
+          <template id="vd-modelo">${linha()}</template>
+          <p class="pc-total">Total: <strong id="vd-total">${cf.format(0)}</strong></p>
+          <label class="field"><span>Observação</span><input name="observacao" maxlength="200" placeholder="Ex.: venda no balcão, nome do cliente"></label>
+          <p class="form-error" role="alert" hidden></p>
+        </div>
+        <footer class="modal-foot">
+          <button type="button" class="btn" data-action="close-modal">Cancelar</button>
+          <button class="btn btn-primary" type="submit">Finalizar venda</button>
+        </footer>
+      </form>`, { wide: true });
+    const form = $('#f-venda', m);
+    const lista = $('.venda-lista', m);
+    const ler = () => $$('.venda-linha', form).map((l) => {
+      const id = l.querySelector('[name=vdItem]').value;
+      const prod = prodById(id);
+      return { produtoId: id, nome: prod ? prod.nome : '', unidade: prod ? prod.unidade : 'un', precoUnit: prod ? num(prod.preco) : 0, qtd: num(l.querySelector('[name=vdQtd]').value) };
+    }).filter((i) => i.produtoId && i.qtd > 0);
+    const somar = () => { const t = $('#vd-total', m); if (t) t.textContent = cf.format(ler().reduce((s, i) => s + i.qtd * i.precoUnit, 0)); };
+    form.addEventListener('input', somar); somar();
+    form.addEventListener('click', (e) => {
+      if (e.target.closest('[data-vd-mais]')) lista.insertAdjacentHTML('beforeend', $('#vd-modelo', m).innerHTML);
+      const t = e.target.closest('[data-vd-tirar]'); if (t) { t.closest('.venda-linha').remove(); somar(); }
+    });
+    form.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const itensForm = ler();
+      const mapa = new Map();
+      itensForm.forEach((i) => { const x = mapa.get(i.produtoId); if (x) x.qtd += i.qtd; else mapa.set(i.produtoId, { ...i }); });
+      const itens = Array.from(mapa.values());
+      if (!itens.length) return showFormError(form, 'Adicione pelo menos um produto com quantidade.');
+      const dados = { numero: proximoNumeroVenda(), itens, total: itens.reduce((s, i) => s + i.qtd * i.precoUnit, 0), observacao: form.observacao.value.trim() };
+      const btn = form.querySelector('[type=submit]'); setBusy(btn, true, 'Registrando…');
+      try {
+        await DB.registrarVenda(dados, state.user);
+        closeModal();
+        toast(`Venda nº ${dados.numero} registrada. O recibo está no histórico de pedidos, em Relatórios.`);
       } catch (err) { showFormError(form, msgErro(err)); setBusy(btn, false); }
     });
   }
@@ -3109,7 +3171,8 @@
       ouvir('notas', 'notas'),
       ouvir('locais', 'locais'),
       ouvir('grades', 'grades'),
-      ouvir('pedidosCompra', 'pedidosCompra')
+      ouvir('pedidosCompra', 'pedidosCompra'),
+      ouvir('pedidosVenda', 'pedidosVenda')
     );
     if (pode('gerir')) state.unsubDados.push(ouvir('solicitacoes', 'solicitacoes'));
     if (recurso('lotes')) state.unsubDados.push(ouvir('inventarios', 'inventarios'));
@@ -3223,9 +3286,9 @@
   const API = {
     state, DB, Ass, $, $$, esc, num, norm, nf, cf, df, dfd, plural, icon, ICONS, openModal, closeModal, modalHead, toast, setBusy,
     showFormError, confirmar, emptyState, loading, refresh, render, sortedProds, sortedCats, sortedForn, prodById, catName, fornById,
-    baixarCSV, baixarArquivo, hojeStr, slug, gauge, nivel, movementForm, productForm, recurso, ehDono, cardBloqueado, planoQueLibera, gruposCompra, aCaminho, fmtFone,
+    baixarCSV, baixarArquivo, hojeStr, slug, gauge, nivel, movementForm, productForm, vendaForm, recurso, ehDono, cardBloqueado, planoQueLibera, gruposCompra, aCaminho, fmtFone,
     digitos, semZeros, prodPorCodigo, mediaDia, acabaEm, copiar, msgErro, detalheMov, TIPOS,
-    pode, meuPapel, ehKit, kitDisponivel, precisaRepor, nomeDe, waNumero, NIVEL_TXT, Prev, avaliar, prazoDe, mediaDia, textoPrazo
+    pode, meuPapel, ehKit, kitDisponivel, precisaRepor, nomeDe, waNumero, NIVEL_TXT, Prev, avaliar, prazoDe, mediaDia, textoPrazo, msDe
   };
   MODULOS = (window.EstokioModulos || []).map((f) => { try { return f(API); } catch (e) { console.error('Módulo com erro:', e); return null; } }).filter(Boolean);
   MODULOS.forEach((mod) => {

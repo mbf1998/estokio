@@ -8,7 +8,7 @@
   'use strict';
   const { state, esc, num, nf, cf, dfd, plural, icon } = A;
   const DIA = 864e5;
-  const R = { periodo: 90, dados: null, carregando: false, chave: '', erro: '' };
+  const R = { periodo: 90, dados: null, carregando: false, chave: '', erro: '', aba: 'analise', verVenda: null };
   const chaveAtual = () => `${state.empresa && state.empresa.id}|${R.periodo}`;
   const comLimite = (promessa, ms) => Promise.race([promessa, new Promise((_, rej) => setTimeout(() => rej(new Error('O servidor demorou demais para responder.')), ms))]);
   const pct = (x) => `${(x * 100).toLocaleString('pt-BR', { maximumFractionDigits: 1 })}%`;
@@ -91,17 +91,30 @@
 
   const views = {
     relatorios: {
-      actions: () => `
+      actions: () => {
+        if (R.aba === 'pedidos') {
+          return R.verVenda
+            ? `<button class="btn" data-action="rel-voltar-pedidos">Voltar à lista</button>
+               <button class="btn btn-primary" data-action="rel-imprimir">${icon('imprimir')}Imprimir ou salvar PDF</button>`
+            : `<button class="btn btn-primary" data-action="nova-venda">${icon('venda')}Nova venda</button>`;
+        }
+        return `
         <button class="btn" data-action="rel-csv">${icon('exportar')}Exportar curva ABC</button>
-        <button class="btn btn-primary" data-action="rel-imprimir">${icon('imprimir')}Imprimir ou salvar PDF</button>`,
+        <button class="btn btn-primary" data-action="rel-imprimir">${icon('imprimir')}Imprimir ou salvar PDF</button>`;
+      },
       shell: () => `
-        <div class="toolbar rel-toolbar">
+        <div class="rel-abas" role="tablist">
+          <button type="button" role="tab" class="${R.aba === 'analise' ? 'is-ativa' : ''}" data-action="rel-aba" data-aba="analise" aria-selected="${R.aba === 'analise'}">Análise</button>
+          <button type="button" role="tab" class="${R.aba === 'pedidos' ? 'is-ativa' : ''}" data-action="rel-aba" data-aba="pedidos" aria-selected="${R.aba === 'pedidos'}">Histórico de pedidos</button>
+        </div>
+        ${R.aba === 'analise' ? `<div class="toolbar rel-toolbar">
           <label class="date-f"><span>Período</span><select data-rel-periodo>
             ${[[30, 'Últimos 30 dias'], [90, 'Últimos 90 dias'], [180, 'Últimos 6 meses'], [365, 'Últimos 12 meses']].map(([v, t]) => `<option value="${v}" ${R.periodo === v ? 'selected' : ''}>${t}</option>`).join('')}
           </select></label>
-        </div>
+        </div>` : ''}
         <div id="view-body"></div>`,
       body() {
+        if (R.aba === 'pedidos') return corpoPedidos();
         if (!state.loaded.produtos || !state.loaded.movimentacoes) return A.loading();
         if (R.chave !== chaveAtual()) carregar();
         const fonte = movsDoPeriodo();
@@ -117,6 +130,50 @@
       }
     }
   };
+
+  /* ---------- Histórico de pedidos: recibo interno (não é documento fiscal) com itens e número do pedido ---------- */
+  function corpoPedidos() {
+    if (!state.loaded.pedidosVenda || !state.loaded.produtos) return A.loading();
+    if (R.verVenda) {
+      const v = state.pedidosVenda.find((x) => x.id === R.verVenda);
+      if (!v) { R.verVenda = null; } else return corpoRecibo(v);
+    }
+    if (!state.pedidosVenda.length) {
+      return A.emptyState('Nenhuma venda registrada ainda',
+        'Use "Nova venda" para dar saída em vários produtos de uma vez. Cada venda vira um pedido numerado com recibo para imprimir ou salvar em PDF.',
+        `<button class="btn btn-primary" data-action="nova-venda">${icon('venda')}Nova venda</button>`);
+    }
+    const lista = state.pedidosVenda.slice().sort((a, b) => num(b.numero) - num(a.numero));
+    return `<div class="table-wrap"><table class="table">
+      <thead><tr><th class="num">Nº</th><th>Data</th><th>Itens</th><th class="num">Total</th><th class="col-actions"><span class="sr-only">Ações</span></th></tr></thead>
+      <tbody>${lista.map((v) => `<tr>
+        <td class="num"><strong>${num(v.numero)}</strong></td>
+        <td class="nowrap">${v.criadoEm ? A.df.format(A.msDe(v.criadoEm)) : ''}</td>
+        <td>${plural((v.itens || []).length, 'produto', 'produtos')}</td>
+        <td class="num">${cf.format(num(v.total))}</td>
+        <td class="col-actions"><div class="row-actions">
+          <button class="icon-btn" data-action="ver-recibo" data-id="${v.id}" title="Ver e imprimir recibo" aria-label="Ver recibo do pedido ${num(v.numero)}">${icon('imprimir')}</button>
+        </div></td>
+      </tr>`).join('')}</tbody></table></div>
+      <p class="table-foot">${plural(lista.length, 'venda registrada', 'vendas registradas')}.</p>`;
+  }
+
+  function corpoRecibo(v) {
+    const dataVenda = A.msDe(v.criadoEm);
+    return `
+      <div class="rel-cabecalho-print recibo-cab"><strong>${esc(state.empresa.nome)}</strong><span>Recibo interno do pedido nº ${num(v.numero)}, ${dfd.format(dataVenda)}. Não é um documento fiscal.</span></div>
+      <div class="table-wrap flat"><table class="table recibo-itens">
+        <thead><tr><th>Produto</th><th class="num">Qtd</th><th class="num">Preço unit.</th><th class="num">Subtotal</th></tr></thead>
+        <tbody>${(v.itens || []).map((i) => `<tr>
+          <td><span class="p-name">${esc(i.nome)}</span></td>
+          <td class="num">${nf.format(num(i.qtd))} <span class="muted">${esc(i.unidade || 'un')}</span></td>
+          <td class="num">${cf.format(num(i.precoUnit))}</td>
+          <td class="num">${cf.format(num(i.qtd) * num(i.precoUnit))}</td>
+        </tr>`).join('')}</tbody>
+      </table></div>
+      <p class="recibo-total">Total: <strong>${cf.format(num(v.total))}</strong></p>
+      ${v.observacao ? `<p class="muted">Observação: ${esc(v.observacao)}</p>` : ''}`;
+  }
 
   function corpo(c) {
     {
@@ -195,6 +252,9 @@
 
   const acoes = {
     'rel-tentar'() { R.chave = ''; R.erro = ''; A.refresh(); },
+    'rel-aba'(t) { R.aba = t.dataset.aba; R.verVenda = null; A.render(); },
+    'ver-recibo'(t) { R.verVenda = t.dataset.id; A.render(); },
+    'rel-voltar-pedidos'() { R.verVenda = null; A.render(); },
     'rel-imprimir'() {
       document.body.classList.add('imprimindo-relatorio');
       const fim = () => { document.body.classList.remove('imprimindo-relatorio'); window.removeEventListener('afterprint', fim); };

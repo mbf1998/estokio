@@ -315,6 +315,9 @@ O aviso aparece dentro do sistema. Avisos por WhatsApp ou e-mail, mesmo com o si
 ### Pedidos de compra com recebimento (todos os planos)
 Na **Lista de compras**, o botão **Criar pedido** transforma os itens de um fornecedor num pedido (dá para criar do zero em **Pedidos de compra > Novo pedido**). O pedido pode ser enviado pelo WhatsApp e fica **aguardando entrega**, com a data prevista. Enquanto isso, a lista de compras mostra "N a caminho" e não sugere comprar de novo. Quando a mercadoria chega, **Receber** lança todas as entradas de uma vez. Se veio faltando, o pedido fica "Recebido em parte" e o restante continua a caminho. Quando o plano traz validade e lotes ou multiloja, o recebimento pede o lote e a validade e deixa escolher o local. Opcionalmente, atualiza o preço de custo com o valor do pedido. Pedidos atrasados aparecem no painel.
 
+### Nova venda e histórico de pedidos (todos os planos)
+Em **Movimentações > Nova venda** (ou em **Relatórios > Histórico de pedidos**), dá para dar saída em vários produtos de uma vez, como um carrinho. Ao confirmar, cada item baixa do estoque na hora (mesma regra de uma saída normal: quem só pode vender também pode registrar a venda) e o conjunto vira um **pedido numerado**, guardado em **Relatórios > Histórico de pedidos**. Lá, cada pedido tem um **recibo interno para imprimir ou salvar em PDF**, com os itens, o preço, o total e o número do pedido — útil para entregar ao cliente ou guardar como comprovante. Importante: isso **não é uma nota fiscal** (NF-e/NFC-e); é só um recibo do próprio Estokio, sem validade fiscal junto à SEFAZ.
+
 ### Kits e combos (Pro e Premium)
 No cadastro do produto, marque **Este produto é um kit ou combo** e escolha os itens e as quantidades (por exemplo, cesta básica: 2 arroz, 1 feijão). O kit não tem estoque próprio: a tabela mostra **quantos kits dá para montar** e a saída de um kit baixa cada item, numa operação só, respeitando validade (sai o que vence primeiro) e local. Se faltar algum item, o sistema diz qual. Um produto que faz parte de um kit não pode ser excluído antes de sair do kit.
 
@@ -351,7 +354,7 @@ Em **Grades**, cadastre um modelo com até dois atributos (por exemplo, Tamanho:
 Em **Locais**, crie o local principal: todo o estoque que já existia fica nele. Depois crie as outras lojas e depósitos. Cada movimentação passa a escolher o local (o ajuste de inventário vale para o local contado), e **Transferir** move mercadoria entre locais sem mudar o total. A tabela de produtos mostra quanto há em cada lugar. Um local só pode ser excluído vazio. Observação: os lotes de validade são do produto, não separados por local.
 
 ### Relatórios (Premium)
-Período de 30, 90, 180 ou 365 dias. Mostra entradas e saídas a preço de custo, margem estimada, valor parado, gráfico mensal, **curva ABC** (quais produtos concentram 80% do valor que sai), **giro e cobertura** (por quantos dias o estoque dura) e **produtos parados**. O botão **Imprimir ou salvar PDF** usa um layout próprio para papel. A curva ABC também sai em CSV. Os valores usam os preços atuais de cada produto.
+Tem duas abas. **Análise**, com período de 30, 90, 180 ou 365 dias: entradas e saídas a preço de custo, margem estimada, valor parado, gráfico mensal, **curva ABC** (quais produtos concentram 80% do valor que sai), **giro e cobertura** (por quantos dias o estoque dura) e **produtos parados**. O botão **Imprimir ou salvar PDF** usa um layout próprio para papel, e a curva ABC também sai em CSV. **Histórico de pedidos**, com as vendas registradas em **Nova venda** (todos os planos, não só Premium) e o recibo de cada uma para imprimir ou salvar em PDF — ver "Nova venda e histórico de pedidos" acima. Os valores usam os preços atuais de cada produto.
 
 ### Etiquetas (Pro e Premium)
 Escolha os produtos (ou "Quantidade = estoque"), o modelo e o que aparece: nome, preço, código de barras, SKU e nome da empresa. Os modelos são folha A4 3 x 11 (70 x 25,4 mm), folha A4 3 x 8 (63,5 x 33,9 mm), folha Carta 3 x 10 (66,7 x 25,4 mm) e impressora térmica de 40 x 25, 50 x 30 ou 60 x 40 mm. Para aproveitar uma folha já usada, escolha em que etiqueta começar. Em **Ajuste fino**, mova a impressão em milímetros se a sua impressora deslocar. Na janela de impressão, escolha escala de 100% (tamanho real).
@@ -500,6 +503,7 @@ Depois de mudanças em `public/app/`, rode `npx cap sync android`.
 | `empresas/{id}/custos/{produto}` | preço de custo de cada produto (só responsável e gerente leem) |
 | `empresas/{id}/solicitacoes` | ajustes pedidos pela equipe, aguardando aprovação |
 | `empresas/{id}/pedidosCompra` | pedidos de compra, o que já foi recebido e `diasEntrega` (quantos dias o fornecedor levou) |
+| `empresas/{id}/pedidosVenda` | vendas registradas em "Nova venda": número do pedido, itens, preço e total — base do recibo em PDF no histórico de pedidos (não é documento fiscal) |
 | `empresas/{id}/inventarios` | contagens de inventário e os relatórios de diferenças |
 
 ## Observações

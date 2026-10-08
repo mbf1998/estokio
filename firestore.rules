@@ -396,6 +396,16 @@ service cloud.firestore {
         allow delete: if podeGerir(eid) || ehAdmin();
       }
 
+      // Pedidos de venda: recibo interno (não é documento fiscal), histórico de pedido com PDF para imprimir
+      match /pedidosVenda/{id} {
+        allow read: if ehMembro(eid) || ehAdmin();
+        allow create: if (escreve(papelAtivo(eid)) || papelAtivo(eid) == 'caixa')
+          && request.resource.data.numero is number
+          && request.resource.data.itens is list && request.resource.data.itens.size() > 0
+          && request.resource.data.criadoPor == request.auth.token.email;
+        allow update, delete: if podeGerir(eid) || ehAdmin();
+      }
+
       // Inventários (plano Pro e Premium): gerente abre e conclui, a equipe conta
       match /inventarios/{id} {
         allow read: if ehMembro(eid) || ehAdmin();

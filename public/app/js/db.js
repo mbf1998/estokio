@@ -524,7 +524,7 @@
         let q = sub(nome);
         if (nome === 'movimentacoes') q = q.orderBy('criadoEm', 'desc').limit(1000);
         if (nome === 'notas') q = q.orderBy('criadoEm', 'desc').limit(30);
-        if (nome === 'pedidosCompra' || nome === 'inventarios') q = q.orderBy('criadoEm', 'desc').limit(300);
+        if (nome === 'pedidosCompra' || nome === 'inventarios' || nome === 'pedidosVenda') q = q.orderBy('criadoEm', 'desc').limit(300);
         if (nome === 'solicitacoes') q = q.where('status', '==', 'pendente');
         return q.onSnapshot((snap) => cb(snap.docs.map(toPlain)), onErr);
       },
@@ -647,6 +647,45 @@
             feitos += grupo.length;
           } catch (e) { throw falhaParcial(e, feitos, alvos.length, 'itens do pedido'); }
         }
+      },
+
+      /* ---- pedidos de venda (recibo interno com histórico de pedido) ---- */
+      async registrarVenda(v, user) {
+        const itens = (v.itens || []).filter((i) => num(i.qtd) > 0);
+        if (!itens.length) throw erro('Adicione pelo menos um produto com quantidade.');
+        const ref = await sub('pedidosVenda').add({
+          numero: v.numero, itens, total: num(v.total), observacao: v.observacao || '',
+          criadoPor: user.email, criadoEm: ts()
+        });
+        const grupos = []; let atual = [], escritas = 0;
+        for (const it of itens) {
+          if (atual.length && escritas + 2 > MAX_ESCRITAS) { grupos.push(atual); atual = []; escritas = 0; }
+          atual.push(it); escritas += 2;
+        }
+        if (atual.length) grupos.push(atual);
+        let feitos = 0;
+        for (const grupo of grupos) {
+          try {
+            await db.runTransaction(async (tx) => {
+              const snaps = [];
+              for (const it of grupo) snaps.push(await tx.get(sub('produtos').doc(it.produtoId)));
+              grupo.forEach((it, i) => {
+                const sn = snaps[i];
+                if (!sn.exists) throw erro(`O produto ${it.nome} não existe mais.`);
+                const p = sn.data();
+                const rr = movimentar(p, { tipo: 'saida', quantidade: it.qtd, localId: v.localId, localPadrao: v.localPadrao || localPadrao });
+                const c = camposMov(rr, v);
+                tx.update(sn.ref, { ...c.prod, atualizadoEm: ts() });
+                tx.set(sub('movimentacoes').doc(), {
+                  produtoId: sn.id, produtoNome: p.nome, sku: p.sku || '', tipo: 'saida', quantidade: num(it.qtd), antes: rr.antes, depois: rr.depois, ...c.mov,
+                  pedidoVendaId: ref.id, observacao: `Venda nº ${v.numero}`, usuario: user.email, criadoEm: ts()
+                });
+              });
+            });
+            feitos += grupo.length;
+          } catch (e) { throw falhaParcial(e, feitos, itens.length, 'itens da venda'); }
+        }
+        return ref.id;
       },
 
       /* ---- inventário (plano Pro) ---- */
@@ -912,7 +951,7 @@
   function localStore() {
     const KEY = apresentacao ? 'estokio:apresentacao:v1' : 'estokio:demo:v2';
     const user = { uid: 'demo', email: 'demo@estokio.local', name: apresentacao ? 'Você' : 'Você (demonstração)' };
-    const colecoes = ['produtos', 'categorias', 'movimentacoes', 'membros', 'convites', 'empresa', 'fornecedores', 'notas', 'pedidos', 'locais', 'grades', 'solicitacoes', 'pedidosCompra', 'inventarios'];
+    const colecoes = ['produtos', 'categorias', 'movimentacoes', 'membros', 'convites', 'empresa', 'fornecedores', 'notas', 'pedidos', 'locais', 'grades', 'solicitacoes', 'pedidosCompra', 'inventarios', 'pedidosVenda'];
     let localPadrao = null;
     const subs = Object.fromEntries(colecoes.map((c) => [c, new Set()]));
     const newId = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
@@ -994,7 +1033,7 @@
     if (!data.notas) data.notas = [];
     if (!data.pedidos) data.pedidos = [];
     if (!data.locais) data.locais = [];
-    ['solicitacoes', 'pedidosCompra', 'inventarios'].forEach((k) => { if (!data[k]) data[k] = []; });
+    ['solicitacoes', 'pedidosCompra', 'inventarios', 'pedidosVenda'].forEach((k) => { if (!data[k]) data[k] = []; });
     if (!data.grades) data.grades = [];
     const A = window.EstokioAssinatura;
 
@@ -1166,6 +1205,26 @@
         ped.recebidoEm = Date.now(); ped.recebidoPor = user.email;
         ped.diasEntrega = r.diasEntrega !== undefined && r.diasEntrega !== null && r.diasEntrega !== '' ? Math.max(0, Math.round(num(r.diasEntrega))) : Math.max(0, Math.round((Date.now() - num(ped.criadoEm)) / DIA));
         persist(); emit('produtos', 'movimentacoes', 'pedidosCompra');
+      },
+      async registrarVenda(v) {
+        await tick();
+        const itens = (v.itens || []).filter((i) => num(i.qtd) > 0);
+        if (!itens.length) throw erro('Adicione pelo menos um produto com quantidade.');
+        const calc = itens.map((it) => {
+          const p = data.produtos.find((x) => x.id === it.produtoId);
+          if (!p) throw erro(`O produto ${it.nome} não existe mais.`);
+          return { it, p, rr: movimentar(p, { tipo: 'saida', quantidade: it.qtd, localId: v.localId, localPadrao: v.localPadrao || localPadrao }) };
+        });
+        const vid = newId();
+        calc.forEach(({ it, p, rr }) => {
+          const c = camposMov(rr, v);
+          Object.assign(p, c.prod, { atualizadoEm: Date.now() });
+          data.movimentacoes.push({ id: newId(), produtoId: p.id, produtoNome: p.nome, sku: p.sku || '', tipo: 'saida', quantidade: num(it.qtd), antes: rr.antes, depois: rr.depois, ...c.mov,
+            pedidoVendaId: vid, observacao: `Venda nº ${v.numero}`, usuario: user.email, criadoEm: Date.now() });
+        });
+        data.pedidosVenda.push({ id: vid, numero: v.numero, itens, total: num(v.total), observacao: v.observacao || '', criadoPor: user.email, criadoEm: Date.now() });
+        persist(); emit('produtos', 'movimentacoes', 'pedidosVenda');
+        return vid;
       },
       async salvarInventario(inv) {
         await tick();
