@@ -2195,8 +2195,15 @@
     });
   }
 
-  /* ---------- Nova venda: várias saídas de uma vez, viram um pedido numerado com recibo em PDF ---------- */
+  /* ---------- Nova venda: bipar código de barras ou escolher manualmente, vira um pedido numerado com recibo em PDF ---------- */
   const proximoNumeroVenda = () => state.pedidosVenda.reduce((m, v) => Math.max(m, num(v.numero)), 0) + 1;
+  /** Código único por venda (não sequencial, não adivinhável): data + letras/números aleatórios. */
+  function codigoVenda() {
+    const d = new Date();
+    const aamadia = `${String(d.getFullYear()).slice(2)}${String(d.getMonth() + 1).padStart(2, '0')}${String(d.getDate()).padStart(2, '0')}`;
+    const acaso = Math.random().toString(36).slice(2, 6).toUpperCase();
+    return `V${aamadia}-${acaso}`;
+  }
   function vendaForm() {
     const ps = sortedProds().filter((x) => !ehKit(x));
     if (!ps.length) { toast('Cadastre um produto antes de registrar uma venda.', 'erro'); return; }
@@ -2210,12 +2217,16 @@
         ${modalHead('Nova venda')}
         <div class="modal-body">
           <p class="confirm-text">Cada item sai do estoque na hora. No fim, o pedido fica no histórico com um recibo para imprimir ou salvar em PDF.</p>
-          <div class="pc-cab"><span>Produto</span><span>Quantidade</span><span></span></div>
+          <label class="field campo-bipar"><span>${icon('codigo')}Bipar código de barras</span>
+            <input id="vd-bipar" inputmode="numeric" autocomplete="off" autofocus placeholder="Use o leitor ou digite o código e tecle Enter"></label>
+          <p class="muted vd-bipar-dica">Cada leitura soma 1 unidade do produto. Repita a leitura para somar mais.</p>
+          <div class="pc-cab venda-cab"><span>Produto</span><span>Quantidade</span><span></span></div>
           <div class="pc-lista venda-lista">${linha()}</div>
           <button type="button" class="btn btn-sm" data-vd-mais>${icon('plus')}Adicionar produto</button>
           <template id="vd-modelo">${linha()}</template>
           <p class="pc-total">Total: <strong id="vd-total">${cf.format(0)}</strong></p>
-          <label class="field"><span>Observação</span><input name="observacao" maxlength="200" placeholder="Ex.: venda no balcão, nome do cliente"></label>
+          <label class="field"><span>Cliente (opcional)</span><input name="cliente" maxlength="80" placeholder="Nome do cliente"></label>
+          <label class="field"><span>Observação</span><input name="observacao" maxlength="200" placeholder="Ex.: venda no balcão, forma de pagamento"></label>
           <p class="form-error" role="alert" hidden></p>
         </div>
         <footer class="modal-foot">
@@ -2225,13 +2236,42 @@
       </form>`, { wide: true });
     const form = $('#f-venda', m);
     const lista = $('.venda-lista', m);
+    const bipar = $('#vd-bipar', m);
     const ler = () => $$('.venda-linha', form).map((l) => {
       const id = l.querySelector('[name=vdItem]').value;
       const prod = prodById(id);
       return { produtoId: id, nome: prod ? prod.nome : '', unidade: prod ? prod.unidade : 'un', precoUnit: prod ? num(prod.preco) : 0, qtd: num(l.querySelector('[name=vdQtd]').value) };
     }).filter((i) => i.produtoId && i.qtd > 0);
     const somar = () => { const t = $('#vd-total', m); if (t) t.textContent = cf.format(ler().reduce((s, i) => s + i.qtd * i.precoUnit, 0)); };
-    form.addEventListener('input', somar); somar();
+    somar();
+    /** Soma `inc` unidades do produto: usa uma linha já com esse produto, depois uma linha vazia, senão cria uma nova. */
+    function adicionarItem(produtoId, inc) {
+      const linhas = $$('.venda-linha', lista);
+      let alvo = linhas.find((l) => l.querySelector('[name=vdItem]').value === produtoId);
+      if (!alvo) {
+        alvo = linhas.find((l) => !l.querySelector('[name=vdItem]').value);
+        if (!alvo) { lista.insertAdjacentHTML('beforeend', $('#vd-modelo', m).innerHTML); alvo = lista.lastElementChild; }
+        alvo.querySelector('[name=vdItem]').value = produtoId;
+      }
+      const qInput = alvo.querySelector('[name=vdQtd]');
+      qInput.value = num(qInput.value) + inc;
+      alvo.classList.add('venda-linha-flash');
+      setTimeout(() => alvo.classList.remove('venda-linha-flash'), 500);
+      alvo.scrollIntoView({ block: 'nearest' });
+      somar();
+    }
+    bipar.addEventListener('keydown', (e) => {
+      if (e.key !== 'Enter') return;
+      e.preventDefault();
+      const cod = bipar.value.trim();
+      bipar.value = '';
+      if (!cod) return;
+      const p = prodPorCodigo(cod);
+      if (!p) { toast(`Nenhum produto com o código ${cod}.`, 'erro'); return; }
+      if (ehKit(p)) { toast('Kits não entram na venda por código de barras: adicione manualmente.', 'erro'); return; }
+      adicionarItem(p.id, 1);
+    });
+    form.addEventListener('input', (e) => { if (e.target !== bipar) somar(); });
     form.addEventListener('click', (e) => {
       if (e.target.closest('[data-vd-mais]')) lista.insertAdjacentHTML('beforeend', $('#vd-modelo', m).innerHTML);
       const t = e.target.closest('[data-vd-tirar]'); if (t) { t.closest('.venda-linha').remove(); somar(); }
@@ -2242,13 +2282,16 @@
       const mapa = new Map();
       itensForm.forEach((i) => { const x = mapa.get(i.produtoId); if (x) x.qtd += i.qtd; else mapa.set(i.produtoId, { ...i }); });
       const itens = Array.from(mapa.values());
-      if (!itens.length) return showFormError(form, 'Adicione pelo menos um produto com quantidade.');
-      const dados = { numero: proximoNumeroVenda(), itens, total: itens.reduce((s, i) => s + i.qtd * i.precoUnit, 0), observacao: form.observacao.value.trim() };
+      if (!itens.length) return showFormError(form, 'Adicione pelo menos um produto com quantidade, bipando o código de barras ou escolhendo manualmente.');
+      const dados = {
+        numero: proximoNumeroVenda(), codigo: codigoVenda(), itens, total: itens.reduce((s, i) => s + i.qtd * i.precoUnit, 0),
+        cliente: form.cliente.value.trim(), observacao: form.observacao.value.trim()
+      };
       const btn = form.querySelector('[type=submit]'); setBusy(btn, true, 'Registrando…');
       try {
         await DB.registrarVenda(dados, state.user);
         closeModal();
-        toast(`Venda nº ${dados.numero} registrada. O recibo está no histórico de pedidos, em Relatórios.`);
+        toast(`Venda ${dados.codigo} registrada. O recibo está no histórico de pedidos, em Relatórios.`);
       } catch (err) { showFormError(form, msgErro(err)); setBusy(btn, false); }
     });
   }

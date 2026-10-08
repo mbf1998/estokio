@@ -654,7 +654,7 @@
         const itens = (v.itens || []).filter((i) => num(i.qtd) > 0);
         if (!itens.length) throw erro('Adicione pelo menos um produto com quantidade.');
         const ref = await sub('pedidosVenda').add({
-          numero: v.numero, itens, total: num(v.total), observacao: v.observacao || '',
+          numero: v.numero, codigo: v.codigo || '', itens, total: num(v.total), cliente: v.cliente || '', observacao: v.observacao || '',
           criadoPor: user.email, criadoEm: ts()
         });
         const grupos = []; let atual = [], escritas = 0;
@@ -678,7 +678,7 @@
                 tx.update(sn.ref, { ...c.prod, atualizadoEm: ts() });
                 tx.set(sub('movimentacoes').doc(), {
                   produtoId: sn.id, produtoNome: p.nome, sku: p.sku || '', tipo: 'saida', quantidade: num(it.qtd), antes: rr.antes, depois: rr.depois, ...c.mov,
-                  pedidoVendaId: ref.id, observacao: `Venda nº ${v.numero}`, usuario: user.email, criadoEm: ts()
+                  pedidoVendaId: ref.id, observacao: `Venda ${v.codigo || `nº ${v.numero}`}`, usuario: user.email, criadoEm: ts()
                 });
               });
             });
@@ -1220,9 +1220,9 @@
           const c = camposMov(rr, v);
           Object.assign(p, c.prod, { atualizadoEm: Date.now() });
           data.movimentacoes.push({ id: newId(), produtoId: p.id, produtoNome: p.nome, sku: p.sku || '', tipo: 'saida', quantidade: num(it.qtd), antes: rr.antes, depois: rr.depois, ...c.mov,
-            pedidoVendaId: vid, observacao: `Venda nº ${v.numero}`, usuario: user.email, criadoEm: Date.now() });
+            pedidoVendaId: vid, observacao: `Venda ${v.codigo || `nº ${v.numero}`}`, usuario: user.email, criadoEm: Date.now() });
         });
-        data.pedidosVenda.push({ id: vid, numero: v.numero, itens, total: num(v.total), observacao: v.observacao || '', criadoPor: user.email, criadoEm: Date.now() });
+        data.pedidosVenda.push({ id: vid, numero: v.numero, codigo: v.codigo || '', itens, total: num(v.total), cliente: v.cliente || '', observacao: v.observacao || '', criadoPor: user.email, criadoEm: Date.now() });
         persist(); emit('produtos', 'movimentacoes', 'pedidosVenda');
         return vid;
       },

@@ -145,10 +145,12 @@
     }
     const lista = state.pedidosVenda.slice().sort((a, b) => num(b.numero) - num(a.numero));
     return `<div class="table-wrap"><table class="table">
-      <thead><tr><th class="num">Nº</th><th>Data</th><th>Itens</th><th class="num">Total</th><th class="col-actions"><span class="sr-only">Ações</span></th></tr></thead>
+      <thead><tr><th class="num">Nº</th><th>Código</th><th>Data</th><th>Cliente</th><th>Itens</th><th class="num">Total</th><th class="col-actions"><span class="sr-only">Ações</span></th></tr></thead>
       <tbody>${lista.map((v) => `<tr>
         <td class="num"><strong>${num(v.numero)}</strong></td>
+        <td class="nowrap"><span class="chip chip-codigo">${esc(v.codigo || '—')}</span></td>
         <td class="nowrap">${v.criadoEm ? A.df.format(A.msDe(v.criadoEm)) : ''}</td>
+        <td>${v.cliente ? esc(v.cliente) : '<span class="muted">Não informado</span>'}</td>
         <td>${plural((v.itens || []).length, 'produto', 'produtos')}</td>
         <td class="num">${cf.format(num(v.total))}</td>
         <td class="col-actions"><div class="row-actions">
@@ -158,21 +160,49 @@
       <p class="table-foot">${plural(lista.length, 'venda registrada', 'vendas registradas')}.</p>`;
   }
 
+  /** Recibo interno (não é documento fiscal): layout visual com a marca Estokio, pensado para imprimir ou salvar em PDF. */
   function corpoRecibo(v) {
     const dataVenda = A.msDe(v.criadoEm);
+    const itens = v.itens || [];
     return `
-      <div class="rel-cabecalho-print recibo-cab"><strong>${esc(state.empresa.nome)}</strong><span>Recibo interno do pedido nº ${num(v.numero)}, ${dfd.format(dataVenda)}. Não é um documento fiscal.</span></div>
-      <div class="table-wrap flat"><table class="table recibo-itens">
-        <thead><tr><th>Produto</th><th class="num">Qtd</th><th class="num">Preço unit.</th><th class="num">Subtotal</th></tr></thead>
-        <tbody>${(v.itens || []).map((i) => `<tr>
-          <td><span class="p-name">${esc(i.nome)}</span></td>
-          <td class="num">${nf.format(num(i.qtd))} <span class="muted">${esc(i.unidade || 'un')}</span></td>
-          <td class="num">${cf.format(num(i.precoUnit))}</td>
-          <td class="num">${cf.format(num(i.qtd) * num(i.precoUnit))}</td>
-        </tr>`).join('')}</tbody>
-      </table></div>
-      <p class="recibo-total">Total: <strong>${cf.format(num(v.total))}</strong></p>
-      ${v.observacao ? `<p class="muted">Observação: ${esc(v.observacao)}</p>` : ''}`;
+      <div class="recibo">
+        <header class="recibo-topo">
+          <div class="recibo-empresa">
+            <strong class="recibo-empresa-nome">${esc(state.empresa.nome)}</strong>
+            <span class="recibo-empresa-meta">${[state.empresa.cnpj ? `CNPJ ${esc(state.empresa.cnpj)}` : '', state.empresa.telefone ? esc(A.fmtFone(state.empresa.telefone)) : '', state.empresa.cidade ? esc(state.empresa.cidade) : ''].filter(Boolean).join(' · ')}</span>
+          </div>
+          <div class="recibo-selo">
+            <span class="recibo-selo-tag">${icon('venda')}Recibo de venda</span>
+            <span class="recibo-codigo">${esc(v.codigo || `Nº ${num(v.numero)}`)}</span>
+            <span class="recibo-data">${dfd.format(dataVenda)}</span>
+          </div>
+        </header>
+
+        <div class="recibo-info">
+          <div class="recibo-info-item"><span class="recibo-info-label">Cliente</span><strong>${v.cliente ? esc(v.cliente) : 'Não informado'}</strong></div>
+          <div class="recibo-info-item"><span class="recibo-info-label">Pedido</span><strong>Nº ${num(v.numero)}</strong></div>
+          <div class="recibo-info-item"><span class="recibo-info-label">Itens</span><strong>${plural(itens.length, 'produto', 'produtos')}</strong></div>
+          <div class="recibo-info-item"><span class="recibo-info-label">Vendido por</span><strong>${esc(A.nomeDe(v.criadoPor))}</strong></div>
+        </div>
+
+        <div class="table-wrap flat"><table class="table recibo-itens">
+          <thead><tr><th>Produto</th><th class="num">Qtd</th><th class="num">Preço unit.</th><th class="num">Subtotal</th></tr></thead>
+          <tbody>${itens.map((i) => `<tr>
+            <td><span class="p-name">${esc(i.nome)}</span></td>
+            <td class="num">${nf.format(num(i.qtd))} <span class="muted">${esc(i.unidade || 'un')}</span></td>
+            <td class="num">${cf.format(num(i.precoUnit))}</td>
+            <td class="num">${cf.format(num(i.qtd) * num(i.precoUnit))}</td>
+          </tr>`).join('')}</tbody>
+        </table></div>
+
+        <div class="recibo-total-box"><span>Total</span><strong>${cf.format(num(v.total))}</strong></div>
+        ${v.observacao ? `<p class="muted recibo-obs">Observação: ${esc(v.observacao)}</p>` : ''}
+
+        <footer class="recibo-rodape">
+          <img src="assets/estokio-logo.svg" alt="Estokio" class="recibo-logo">
+          <span>Comprovante interno gerado pelo Estokio em ${dfd.format(Date.now())}. Não é um documento fiscal (NF-e/NFC-e).</span>
+        </footer>
+      </div>`;
   }
 
   function corpo(c) {
