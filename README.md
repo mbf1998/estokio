@@ -147,7 +147,18 @@ npm run testar:regras
 | `tools/regras/fluxos.js` | Simula os fluxos de cadastro e acesso (teste grátis, código de ativação, convite de equipe, renovação, remoção de membro) e os casos de abuso (CNPJ ou e-mail repetido, código reutilizado, equipe cheia, papel melhor que o do convite). |
 | `tools/regras/orcamento.js` | Mede quantas consultas a outros documentos cada gravação gasta e quantos itens cabem em cada lote. |
 
-O simulador não é o emulador oficial do Firebase: ele cobre o que as regras do Estokio usam e avisa quando encontra algo que não conhece. Confirme também no emulador oficial (`firebase emulators:start`) antes de uma mudança grande.
+O simulador não é o emulador oficial do Firebase: ele cobre o que as regras do Estokio usam e avisa quando encontra algo que não conhece.
+
+**Confirme também no emulador oficial antes de uma mudança grande.** O projeto traz uma amostra das partes mais importantes (isolamento entre empresas, papéis, teste grátis duplicado, o aceite dos termos e o pedido de exclusão), no formato oficial da Google, para rodar contra o Firestore de verdade (não um simulador):
+
+```
+npm install          # uma vez: traz o firebase-tools e a biblioteca de teste
+npm run testar:emulador
+```
+
+Isso precisa do **Java** instalado (o emulador roda em Java) — se não tiver, `npm run testar:emulador` avisa. **Esse arquivo específico (`tools/regras/emulador.test.js`) eu escrevi mas não consegui rodar**, porque não tenho acesso à rede neste ambiente para instalar o `firebase-tools` ou abrir o emulador — ao contrário de tudo que fiz até aqui no projeto, essa parte só você consegue confirmar que roda sem erro. Se der algum erro de sintaxe da biblioteca, me mande a mensagem que eu corrijo.
+
+Essa amostra não substitui `matriz.js` (45 ações) nem `fluxos.js` (15 fluxos): é um recorte, pensado para dar confiança real nas partes de maior risco, sem o trabalho de portar tudo para o formato do emulador.
 
 **Limite de consultas.** As regras consultam outros documentos (a empresa e o membro) a cada gravação, para saber quem é a pessoa e se a empresa está ativa. O Firestore aceita no máximo **20 consultas por lote ou transação**. Se passar disso, a gravação inteira é recusada com "sem permissão", mesmo para o responsável. Por isso:
 
@@ -155,6 +166,26 @@ O simulador não é o emulador oficial do Firebase: ele cobre o que as regras do
 - o app divide o trabalho em lotes e transações pequenos (`MAX_ESCRITAS` em `js/db.js`): a importação de planilha e de NF-e grava em lotes de até 9 gravações, vários ao mesmo tempo; a venda de kit baixa os itens em grupos de 4; o recebimento de pedido, em grupos de 2 a 3 itens; a grade grava as variações em lotes;
 - na venda de kit, todos os itens são conferidos **antes** de baixar qualquer um; se um grupo falhar no meio, a mensagem diz quantos itens já foram gravados;
 - **ao criar uma regra nova**, rode `npm run testar:regras`: se uma gravação passar a gastar mais consultas, o orçamento mostra quantos itens ainda cabem num lote.
+
+## Índices do Firestore
+
+Duas consultas do projeto combinam mais de um campo de filtro (`pedidos` por empresa e situação; `convites` por empresa, tipo e situação) e por isso exigem um índice composto — sem ele, o Firestore recusa a consulta com "é necessário um índice", só na hora em que alguém realmente passar por ali. Os dois estão declarados em `firestore.indexes.json`. Publique junto com as regras:
+
+```
+npm run deploy:indices
+```
+
+(Leva alguns minutos para o índice ficar pronto depois de publicado; é normal.)
+
+## Cabeçalhos de segurança e CSP (Cloudflare)
+
+O `public/_headers` define, para o site inteiro, uma **Content-Security-Policy** (restringe de quais endereços o navegador pode carregar script, estilo, fonte e dados) e o **Strict-Transport-Security** (força HTTPS sempre). Os outros cabeçalhos (`X-Content-Type-Options`, `X-Frame-Options`, `Referrer-Policy`, `Permissions-Policy`) já existiam.
+
+A CSP libera só os domínios que o projeto realmente usa: `www.gstatic.com` (Firebase), `cdn.jsdelivr.net` e `cdnjs.cloudflare.com` (leitor de código, importação de planilha, Pix), `fonts.googleapis.com`/`fonts.gstatic.com` (a fonte do site) e os endereços do Firestore e do Auth. Testei as quatro páginas principais (inicial, app, admin, termos) contra um servidor que aplica esse mesmo `_headers`, sem nenhuma violação.
+
+**Se algum dia adicionar uma biblioteca nova de outro domínio** (um CDN diferente, por exemplo), o recurso vai falhar em silêncio — a CSP bloqueia sem erro visível na tela, só no console do navegador (F12 > Console, procure por "Content-Security-Policy"). Nesse caso, acrescente o domínio em `script-src` (ou `style-src`/`connect-src`, dependendo do tipo) no `_headers`.
+
+**Fora do código:** restrinja a chave do Firebase ao seu domínio, no Google Cloud Console (Credenciais > a chave do projeto > Restrições do aplicativo), e agende um backup do Firestore (também pelo Console). Nenhum dos dois eu consigo fazer por aqui.
 
 ## Os três planos
 

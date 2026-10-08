@@ -10,14 +10,19 @@
     "local": "npx serve public -l 5000",
     "deploy": "npx wrangler pages deploy public --project-name estokio",
     "deploy:regras": "firebase deploy --only firestore:rules",
+    "deploy:indices": "firebase deploy --only firestore:indexes",
     "dist:win": "electron-builder --win",
     "dist:linux": "electron-builder --linux",
     "dist:mac": "electron-builder --mac",
-    "testar:regras": "node tools/regras/matriz.js && node tools/regras/fluxos.js && node tools/regras/orcamento.js"
+    "testar:regras": "node tools/regras/matriz.js && node tools/regras/fluxos.js && node tools/regras/orcamento.js",
+    "testar:emulador": "firebase emulators:exec --only firestore \"node tools/regras/emulador.test.js\""
   },
   "devDependencies": {
     "electron": "^33.2.0",
-    "electron-builder": "^25.1.8"
+    "electron-builder": "^25.1.8",
+    "firebase-tools": "^13.29.1",
+    "firebase": "^10.12.2",
+    "@firebase/rules-unit-testing": "^3.0.4"
   },
   "build": {
     "appId": "com.estokio.app",
