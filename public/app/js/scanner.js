@@ -7,7 +7,9 @@
   'use strict';
 
   const ZXING_URL = 'https://cdn.jsdelivr.net/npm/@zxing/library@0.21.3/umd/index.min.js';
-  const FORMATOS = ['ean_13', 'ean_8', 'upc_a', 'upc_e', 'code_128', 'code_39', 'itf', 'qr_code'];
+  // 'itf' (Interleaved 2-of-5) fica de fora: sem caractere de verificação, costuma "ler" barras falsas em qualquer
+  // padrão listrado da imagem (roupa, grade, sombra), o que soma itens sozinho sem ninguém passar nada no leitor.
+  const FORMATOS = ['ean_13', 'ean_8', 'upc_a', 'upc_e', 'code_128', 'code_39', 'qr_code'];
 
   function carregarZXing() {
     if (window.ZXing) return Promise.resolve();
@@ -37,12 +39,18 @@
       throw new Error('Este navegador não permite usar a câmera aqui. Digite o código no campo abaixo.');
     }
     let parado = false, stream = null, leitor = null, ultimo = '', ultimoEm = 0;
+    let candidato = '', vezesSeguidas = 0;
+    const CONFIRMACOES = 2; // exige o mesmo código em 2 quadros seguidos: um quadro ruim isolado (reflexo, textura, desfoque) não basta
     const emitir = (codigo) => {
       codigo = String(codigo || '').trim();
       if (!codigo || parado) return;
+      // Confirmação: só aceita depois de ler o mesmo valor em sequência. Uma leitura "fantasma" quase nunca se repete igual.
+      if (codigo === candidato) vezesSeguidas++; else { candidato = codigo; vezesSeguidas = 1; }
+      if (vezesSeguidas < CONFIRMACOES) return;
       const agora = Date.now();
       if (codigo === ultimo && agora - ultimoEm < 2000) return; // evita ler o mesmo código várias vezes seguidas
       ultimo = codigo; ultimoEm = agora;
+      candidato = ''; vezesSeguidas = 0;
       if (navigator.vibrate) navigator.vibrate(60);
       aoLer(codigo);
     };
