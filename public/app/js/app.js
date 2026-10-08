@@ -68,7 +68,8 @@
     pix: '<path d="M12 3.5 20.5 12 12 20.5 3.5 12z"/><path d="M8.5 12h7"/>',
     whatsapp: '<path d="M4 20l1.3-4A8 8 0 1 1 8 18.7z"/><path d="M9 9.5c0 3 2.5 5.5 5.5 5.5l1-1.5-2-1-1 .8a4 4 0 0 1-1.8-1.8l.8-1-1-2z"/>',
     gerar: '<path d="M4 4v6h6"/><path d="M20 20v-6h-6"/><path d="M4.5 15a8 8 0 0 0 14.1 3.4M19.5 9A8 8 0 0 0 5.4 5.6"/>',
-    venda: '<path d="M6 3h12l2 4v13a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V7z"/><path d="M8 7V5a4 4 0 0 1 8 0v2M9 11h6M9 15h4"/>'
+    venda: '<path d="M6 3h12l2 4v13a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V7z"/><path d="M8 7V5a4 4 0 0 1 8 0v2M9 11h6M9 15h4"/>',
+    camera: '<path d="M4 8h3l1.5-2h7L17 8h3a1 1 0 0 1 1 1v9a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V9a1 1 0 0 1 1-1z"/><circle cx="12" cy="13.5" r="3.5"/>'
   };
   const icon = (n) => `<svg class="ic" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">${ICONS[n] || ''}</svg>`;
 
@@ -2218,7 +2219,9 @@
         <div class="modal-body">
           <p class="confirm-text">Cada item sai do estoque na hora. No fim, o pedido fica no histórico com um recibo para imprimir ou salvar em PDF.</p>
           <label class="field campo-bipar"><span>${icon('codigo')}Bipar código de barras</span>
-            <input id="vd-bipar" inputmode="numeric" autocomplete="off" autofocus placeholder="Use o leitor ou digite o código e tecle Enter"></label>
+            <div class="input-scan"><input id="vd-bipar" inputmode="numeric" autocomplete="off" autofocus placeholder="Use o leitor ou digite o código e tecle Enter">
+            <button type="button" class="btn" data-vd-camera>${icon('camera')}Usar câmera</button></div></label>
+          <div id="vd-camera-area" class="leitor-area" hidden></div>
           <p class="muted vd-bipar-dica">Cada leitura soma 1 unidade do produto. Repita a leitura para somar mais.</p>
           <div class="pc-cab venda-cab"><span>Produto</span><span>Quantidade</span><span></span></div>
           <div class="pc-lista venda-lista">${linha()}</div>
@@ -2260,21 +2263,43 @@
       alvo.scrollIntoView({ block: 'nearest' });
       somar();
     }
-    bipar.addEventListener('keydown', (e) => {
-      if (e.key !== 'Enter') return;
-      e.preventDefault();
-      const cod = bipar.value.trim();
-      bipar.value = '';
+    /** Usada tanto pelo campo de digitar/leitor USB quanto pela câmera. */
+    function lerCodigo(cod) {
+      cod = String(cod || '').trim();
       if (!cod) return;
       const p = prodPorCodigo(cod);
       if (!p) { toast(`Nenhum produto com o código ${cod}.`, 'erro'); return; }
       if (ehKit(p)) { toast('Kits não entram na venda por código de barras: adicione manualmente.', 'erro'); return; }
       adicionarItem(p.id, 1);
+    }
+    bipar.addEventListener('keydown', (e) => {
+      if (e.key !== 'Enter') return;
+      e.preventDefault();
+      const cod = bipar.value.trim();
+      bipar.value = '';
+      lerCodigo(cod);
     });
+    const areaCamera = $('#vd-camera-area', m);
+    const btnCamera = $('[data-vd-camera]', m);
+    let cameraAberta = false;
+    function alternarCamera() {
+      cameraAberta = !cameraAberta;
+      if (cameraAberta) {
+        areaCamera.hidden = false;
+        btnCamera.innerHTML = `${icon('fechar')}Fechar câmera`;
+        montarLeitor(areaCamera, lerCodigo);
+      } else {
+        pararLeitor();
+        areaCamera.hidden = true;
+        areaCamera.innerHTML = '';
+        btnCamera.innerHTML = `${icon('camera')}Usar câmera`;
+      }
+    }
     form.addEventListener('input', (e) => { if (e.target !== bipar) somar(); });
     form.addEventListener('click', (e) => {
       if (e.target.closest('[data-vd-mais]')) lista.insertAdjacentHTML('beforeend', $('#vd-modelo', m).innerHTML);
       const t = e.target.closest('[data-vd-tirar]'); if (t) { t.closest('.venda-linha').remove(); somar(); }
+      if (e.target.closest('[data-vd-camera]')) alternarCamera();
     });
     form.addEventListener('submit', async (e) => {
       e.preventDefault();
